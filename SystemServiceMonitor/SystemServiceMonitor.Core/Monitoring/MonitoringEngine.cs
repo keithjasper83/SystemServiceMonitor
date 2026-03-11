@@ -78,10 +78,7 @@ public class MonitoringEngine : BackgroundService
                     resource.ObservedState = ResourceState.Running;
                     resource.RepairState = RepairState.None;
 
-                    if (repairPolicyEngine is RepairPolicyEngine rpe)
-                    {
-                         rpe.ResetFailures(resource.Id);
-                    }
+                    repairPolicyEngine.ResetFailures(resource.Id);
                 }
                 else if (result.HealthState == HealthState.Unhealthy)
                 {

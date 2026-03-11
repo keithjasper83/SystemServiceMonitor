@@ -64,7 +64,7 @@ public class WindowsServiceResourceController : IResourceController
                 _logger.LogInformation("sc.exe {Action} {ServiceName} exited with {Code}. Out: {Out}, Err: {Err}", action, serviceName, process.ExitCode, output, err);
 
                 // Allow exit code 1056 (already running) or 1062 (not started) to loosely pass
-                return process.ExitCode == 0 || process.ExitCode == 1056;
+                return process.ExitCode == 0 || process.ExitCode == 1056 || process.ExitCode == 1062;
             }
             return false;
         }

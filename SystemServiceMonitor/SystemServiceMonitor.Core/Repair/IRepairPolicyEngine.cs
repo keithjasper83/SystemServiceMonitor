@@ -6,4 +6,5 @@ namespace SystemServiceMonitor.Core.Repair;
 public interface IRepairPolicyEngine
 {
     Task HandleUnhealthyResourceAsync(Resource resource);
+    void ResetFailures(string resourceId);
 }
