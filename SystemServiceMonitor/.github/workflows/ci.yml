@@ -1,0 +1,57 @@
+name: CI/CD Closed Repair Loop
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_and_test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore SystemServiceMonitor.sln
+
+    - name: Build
+      run: dotnet build SystemServiceMonitor.sln --no-restore --configuration Release
+
+    - name: Run Tests
+      id: test
+      run: dotnet test SystemServiceMonitor.sln --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
+      continue-on-error: true
+
+    - name: Generate Repair Context
+      if: failure() || steps.test.outcome == 'failure'
+      shell: pwsh
+      run: |
+        $context = @{
+            repository = $env:GITHUB_REPOSITORY
+            branch = $env:GITHUB_REF_NAME
+            commitSha = $env:GITHUB_SHA
+            workflow = $env:GITHUB_WORKFLOW
+            failureCategory = "Build/Test Failure"
+            recentChangedFiles = (git diff-tree --no-commit-id --name-only -r $env:GITHUB_SHA) -join ", "
+            timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+        }
+        $context | ConvertTo-Json -Depth 5 > repair-context.json
+
+    - name: Upload Repair Context Artifact
+      if: failure() || steps.test.outcome == 'failure'
+      uses: actions/upload-artifact@v3
+      with:
+        name: repair-context
+        path: repair-context.json
+
+    - name: Fail if tests failed
+      if: steps.test.outcome == 'failure'
+      run: exit 1
