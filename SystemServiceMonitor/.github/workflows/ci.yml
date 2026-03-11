@@ -2,9 +2,7 @@ name: CI/CD Closed Repair Loop
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   build_and_test:
@@ -12,22 +10,22 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore SystemServiceMonitor.sln
+      run: dotnet restore SystemServiceMonitor/SystemServiceMonitor.sln
 
     - name: Build
-      run: dotnet build SystemServiceMonitor.sln --no-restore --configuration Release
+      run: dotnet build SystemServiceMonitor/SystemServiceMonitor.sln --no-restore --configuration Release
 
     - name: Run Tests
       id: test
-      run: dotnet test SystemServiceMonitor.sln --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
+      run: dotnet test SystemServiceMonitor/SystemServiceMonitor.sln --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
       continue-on-error: true
 
     - name: Generate Repair Context
@@ -47,7 +45,7 @@ jobs:
 
     - name: Upload Repair Context Artifact
       if: failure() || steps.test.outcome == 'failure'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: repair-context
         path: repair-context.json
