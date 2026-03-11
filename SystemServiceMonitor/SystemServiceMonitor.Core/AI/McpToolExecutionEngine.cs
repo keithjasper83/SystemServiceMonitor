@@ -33,6 +33,14 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
     public async Task<(bool IsAllowed, string Output)> ExecuteSafeToolAsync(string commandLine)
     {
+        // Explicitly block shell metacharacters
+        var blockedChars = new[] { "&", "|", ";", ">", "<", "`", "$" };
+        if (blockedChars.Any(c => commandLine.Contains(c)))
+        {
+            _logger.LogWarning("Blocked unsafe AI tool execution attempt due to shell metacharacters: {Command}", commandLine);
+            return (false, "Execution blocked: shell metacharacters are not allowed.");
+        }
+
         var isAllowed = _allowList.Any(allowed => commandLine.StartsWith(allowed, StringComparison.OrdinalIgnoreCase));
 
         if (!isAllowed)

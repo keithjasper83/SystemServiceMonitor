@@ -5,7 +5,7 @@ The system consists of several projects:
 1. **SystemServiceMonitor.Core**: Contains core domain models, enums, EF Core database context, and shared business logic.
 2. **SystemServiceMonitor.Wpf**: The WPF Windows desktop application acting as the UI, tray application, and host.
 3. **SystemServiceMonitor.Cli**: A console application for running EF Core migrations without WPF dependencies.
-4. **SystemServiceMonitor.Tests**: XUnit test project.
+4. **SystemServiceMonitor.Tests**: xUnit test project.
 
 ## Database
 

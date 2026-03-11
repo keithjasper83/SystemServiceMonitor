@@ -50,7 +50,7 @@ public class MonitoringEngine : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var healthCheckManager = scope.ServiceProvider.GetRequiredService<IHealthCheckManager>();
-        var repairPolicyEngine = scope.ServiceProvider.GetRequiredService<IRepairPolicyEngine>();
+        var repairPolicyEngine = scope.ServiceProvider.GetService<IRepairPolicyEngine>();
         var gitHubMonitor = scope.ServiceProvider.GetService<IGitHubChangeMonitor>();
 
         var resources = await dbContext.Resources.ToListAsync(stoppingToken);
@@ -78,10 +78,7 @@ public class MonitoringEngine : BackgroundService
                     resource.ObservedState = ResourceState.Running;
                     resource.RepairState = RepairState.None;
 
-                    if (repairPolicyEngine is RepairPolicyEngine rpe)
-                    {
-                         rpe.ResetFailures(resource.Id);
-                    }
+                    repairPolicyEngine?.ResetFailures(resource.Id);
                 }
                 else if (result.HealthState == HealthState.Unhealthy)
                 {
@@ -94,7 +91,7 @@ public class MonitoringEngine : BackgroundService
             }
 
             // Trigger Repair Policy if Unhealthy
-            if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running)
+            if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running && repairPolicyEngine != null)
             {
                 await repairPolicyEngine.HandleUnhealthyResourceAsync(resource);
             }

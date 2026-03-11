@@ -30,7 +30,17 @@ public class HttpHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(resource.TimeoutSeconds));
+            var timeoutSeconds = resource.TimeoutSeconds;
+            if (timeoutSeconds <= 0)
+            {
+                timeoutSeconds = 30;
+            }
+            else if (timeoutSeconds > 300)
+            {
+                timeoutSeconds = 300;
+            }
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             var response = await _httpClient.GetAsync(resource.HealthcheckCommand, cts.Token);
 
             if (response.IsSuccessStatusCode)
