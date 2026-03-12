@@ -1,6 +1,6 @@
 # Security Notes & Privilege Models
 
-The SystemServiceMonitor application controls the state of critical services on a Windows system. Certain actions, notably restarting Windows Services or using elevated processes (`runas`), require Administrative privilege.
+The SystemServiceMonitor application controls the state of critical services on a Windows system. Certain actions, notably restarting Windows Services or using elevated processes (`runas`), require administrative privileges.
 
 ## Elevated Actions
 When a `Resource` is marked with `RequiresElevation = true`, the application will instruct `Process.Start` to use the `runas` verb. This spawns a UAC prompt for the human operator or silently executes if the hosting WPF app is already running elevated.

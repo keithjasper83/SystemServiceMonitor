@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SystemServiceMonitor.Core.Models;
@@ -46,15 +47,15 @@ public class ProcessResourceController : IResourceController
         }
     }
 
-    public Task<bool> StopAsync(Resource resource)
+    public async Task<bool> StopAsync(Resource resource)
     {
         if (!string.IsNullOrWhiteSpace(resource.StopCommand))
         {
-             return RunCommandAsync(resource.StopCommand, resource.WorkingDirectory);
+             return await RunCommandAsync(resource.StopCommand, resource.WorkingDirectory, resource.TimeoutSeconds);
         }
 
         // Fallback: kill process
-        if (string.IsNullOrWhiteSpace(resource.StartCommand)) return Task.FromResult(false);
+        if (string.IsNullOrWhiteSpace(resource.StartCommand)) return false;
         try
         {
             var processName = System.IO.Path.GetFileNameWithoutExtension(resource.StartCommand);
@@ -64,12 +65,12 @@ public class ProcessResourceController : IResourceController
                 p.Kill();
             }
             _logger.LogInformation("Successfully killed Process resource {Id}.", resource.Id);
-            return Task.FromResult(true);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to kill Process resource {Id}.", resource.Id);
-            return Task.FromResult(false);
+            return false;
         }
     }
 
@@ -77,7 +78,7 @@ public class ProcessResourceController : IResourceController
     {
         if (!string.IsNullOrWhiteSpace(resource.RestartCommand))
         {
-            return await RunCommandAsync(resource.RestartCommand, resource.WorkingDirectory);
+            return await RunCommandAsync(resource.RestartCommand, resource.WorkingDirectory, resource.TimeoutSeconds);
         }
 
         var stopped = await StopAsync(resource);
@@ -87,7 +88,7 @@ public class ProcessResourceController : IResourceController
         return await StartAsync(resource);
     }
 
-    private Task<bool> RunCommandAsync(string command, string? workingDirectory)
+    private async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
     {
          try
         {
@@ -105,15 +106,27 @@ public class ProcessResourceController : IResourceController
             var p = Process.Start(processInfo);
             if(p != null)
             {
-                 p.WaitForExit();
-                 return Task.FromResult(p.ExitCode == 0);
+                 var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
+                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
+
+                 try
+                 {
+                     await p.WaitForExitAsync(cts.Token);
+                     return p.ExitCode == 0;
+                 }
+                 catch (OperationCanceledException)
+                 {
+                     _logger.LogWarning("Command timed out: {Command}", command);
+                     p.Kill();
+                     return false;
+                 }
             }
-            return Task.FromResult(false);
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to run command: {Command}", command);
-            return Task.FromResult(false);
+            return false;
         }
     }
 }

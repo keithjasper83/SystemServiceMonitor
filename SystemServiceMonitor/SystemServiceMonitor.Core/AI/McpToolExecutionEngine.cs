@@ -36,37 +36,15 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
     public async Task<(bool IsAllowed, string Output)> ExecuteSafeToolAsync(string commandLine)
     {
-        if (string.IsNullOrWhiteSpace(commandLine))
+        // Explicitly block shell metacharacters
+        var blockedChars = new[] { "&", "|", ";", ">", "<", "`", "$" };
+        if (blockedChars.Any(c => commandLine.Contains(c)))
         {
-            _logger.LogWarning("Blocked empty AI tool execution attempt.");
-            return (false, "Execution blocked: empty command.");
+            _logger.LogWarning("Blocked unsafe AI tool execution attempt due to shell metacharacters: {Command}", commandLine);
+            return (false, "Execution blocked: shell metacharacters are not allowed.");
         }
 
-        // Reject any command containing shell metacharacters to prevent injection
-        if (commandLine.IndexOfAny(_shellMetacharacters) >= 0)
-        {
-            _logger.LogWarning("Blocked AI tool execution due to shell metacharacters: {Command}", commandLine);
-            return (false, "Execution blocked by policy: shell metacharacters are not permitted.");
-        }
-
-        // Validate against the allowlist by comparing tokens exactly (no prefix-only matching).
-        // Arguments beyond the allowlist entry tokens are permitted because arguments to safe
-        // commands (e.g., "ping 1.1.1.1", "docker logs my-container") are expected and safe;
-        // shell metacharacter injection is already blocked above.
-        var isAllowed = _allowList.Any(allowed =>
-        {
-            // For multi-word allowlist entries (e.g., "docker logs"), compare the full prefix token-by-token
-            var allowedTokens = allowed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var commandTokens = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (commandTokens.Length < allowedTokens.Length)
-                return false;
-            for (int i = 0; i < allowedTokens.Length; i++)
-            {
-                if (!string.Equals(commandTokens[i], allowedTokens[i], StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-            return true;
-        });
+        var isAllowed = _allowList.Any(allowed => commandLine.StartsWith(allowed, StringComparison.OrdinalIgnoreCase));
 
         if (!isAllowed)
         {

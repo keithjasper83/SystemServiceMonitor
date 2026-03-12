@@ -17,12 +17,14 @@ namespace SystemServiceMonitor.Wpf;
 public partial class MainWindow : Window
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
 
-    public MainWindow(IServiceProvider serviceProvider)
+    public MainWindow(IServiceProvider serviceProvider, ILogger<MainWindow> logger)
     {
         InitializeComponent();
         _serviceProvider = serviceProvider;
+        _logger = logger;
 
         // Hide window initially to act as tray app
         this.WindowState = WindowState.Minimized;
@@ -72,7 +74,10 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load logs in LoadLogsAsync.");
+        }
     }
 
     private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
