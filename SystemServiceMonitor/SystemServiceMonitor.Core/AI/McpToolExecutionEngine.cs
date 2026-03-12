@@ -36,15 +36,27 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
     public async Task<(bool IsAllowed, string Output)> ExecuteSafeToolAsync(string commandLine)
     {
-        // Explicitly block shell metacharacters
-        var blockedChars = new[] { "&", "|", ";", ">", "<", "`", "$" };
-        if (blockedChars.Any(c => commandLine.Contains(c)))
+        // Reject any command containing shell metacharacters
+        if (commandLine.IndexOfAny(_shellMetacharacters) >= 0)
         {
             _logger.LogWarning("Blocked unsafe AI tool execution attempt due to shell metacharacters: {Command}", commandLine);
-            return (false, "Execution blocked: shell metacharacters are not allowed.");
+            return (false, "Execution blocked by policy: shell metacharacters are not permitted.");
         }
 
-        var isAllowed = _allowList.Any(allowed => commandLine.StartsWith(allowed, StringComparison.OrdinalIgnoreCase));
+        // Exact token-by-token prefix match: "ping" must not match "pingX", "docker logs" requires both tokens
+        var commandTokens = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var isAllowed = _allowList.Any(allowed =>
+        {
+            var allowedTokens = allowed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (commandTokens.Length < allowedTokens.Length)
+                return false;
+            for (int i = 0; i < allowedTokens.Length; i++)
+            {
+                if (!string.Equals(commandTokens[i], allowedTokens[i], StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
+        });
 
         if (!isAllowed)
         {
