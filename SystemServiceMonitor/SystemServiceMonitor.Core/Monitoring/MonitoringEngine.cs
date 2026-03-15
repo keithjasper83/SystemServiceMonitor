@@ -6,6 +6,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using SystemServiceMonitor.Core.Data;
 using SystemServiceMonitor.Core.Models;
 using SystemServiceMonitor.Core.Repair;
@@ -28,6 +30,13 @@ public class MonitoringEngine : BackgroundService
     {
         _logger.LogInformation("Monitoring Engine starting.");
 
+        var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+        var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+        if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+        {
+            pollingInterval = 10;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -39,7 +48,7 @@ public class MonitoringEngine : BackgroundService
                 _logger.LogError(ex, "Error occurred during monitoring cycle.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken); // Simple 10-second polling
+            await Task.Delay(TimeSpan.FromSeconds(pollingInterval), stoppingToken);
         }
 
         _logger.LogInformation("Monitoring Engine stopped.");
@@ -52,18 +61,28 @@ public class MonitoringEngine : BackgroundService
         var healthCheckManager = scope.ServiceProvider.GetRequiredService<IHealthCheckManager>();
         var repairPolicyEngine = scope.ServiceProvider.GetService<IRepairPolicyEngine>();
         var gitHubMonitor = scope.ServiceProvider.GetService<IGitHubChangeMonitor>();
+        var cache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
 
-        var resources = await dbContext.Resources.ToListAsync(stoppingToken);
+        // Check if resources are cached, if not fetch and cache them
+        if (!cache.TryGetValue("MonitoredResources", out System.Collections.Generic.List<Resource>? resources) || resources == null)
+        {
+            resources = await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken);
+            cache.Set("MonitoredResources", resources, TimeSpan.FromMinutes(1)); // Cache for 1 minute
+        }
 
-        foreach (var resource in resources)
+        // Keep track of modified resources to save to DB
+        var modifiedResources = new System.Collections.Concurrent.ConcurrentBag<Resource>();
+
+        await Parallel.ForEachAsync(resources, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = stoppingToken }, async (resource, token) =>
         {
             // Pause monitoring if target desired state is Stopped
             if (resource.DesiredState == ResourceState.Stopped)
             {
-                continue;
+                return;
             }
 
-            var result = await healthCheckManager.ExecuteCheckAsync(resource);
+            var result = await healthCheckManager.ExecuteCheckAsync(resource, token);
+            bool hasChanges = false;
 
             if (resource.HealthState != result.HealthState)
             {
@@ -71,6 +90,7 @@ public class MonitoringEngine : BackgroundService
                     resource.Id, resource.DisplayName, resource.HealthState, result.HealthState, result.Message);
 
                 resource.HealthState = result.HealthState;
+                hasChanges = true;
 
                 // Sync ObservedState based on HealthState
                 if (result.HealthState == HealthState.Healthy)
@@ -94,6 +114,8 @@ public class MonitoringEngine : BackgroundService
             if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running && repairPolicyEngine != null)
             {
                 await repairPolicyEngine.HandleUnhealthyResourceAsync(resource);
+                // Assume repair policy changes state, let's mark it
+                hasChanges = true;
             }
 
             // Optional GitHub monitoring
@@ -101,8 +123,31 @@ public class MonitoringEngine : BackgroundService
             {
                 await gitHubMonitor.CheckForChangesAsync(resource);
             }
-        }
 
-        await dbContext.SaveChangesAsync(stoppingToken);
+            if (hasChanges)
+            {
+                modifiedResources.Add(resource);
+            }
+        });
+
+        // Save modifications to database in a thread-safe manner
+        if (!modifiedResources.IsEmpty)
+        {
+            foreach (var modResource in modifiedResources)
+            {
+                // Attach and update existing entities or rely on update
+                var trackedResource = await dbContext.Resources.FindAsync(new object[] { modResource.Id }, stoppingToken);
+                if (trackedResource != null)
+                {
+                    trackedResource.HealthState = modResource.HealthState;
+                    trackedResource.ObservedState = modResource.ObservedState;
+                    trackedResource.RepairState = modResource.RepairState;
+                }
+            }
+            await dbContext.SaveChangesAsync(stoppingToken);
+
+            // Update cache to reflect changes
+            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromMinutes(1));
+        }
     }
 }
