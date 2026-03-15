@@ -73,13 +73,17 @@ public partial class MainWindow : Window
                         {
                             using (queryObj)
                             {
-                                tempItems.Add(new DiscoveredResource
+                                var name = queryObj["Name"]?.ToString();
+                                if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    Name = name ?? "Unknown",
-                                    Status = queryObj["State"]?.ToString() ?? "Unknown",
-                                    Details = queryObj["Description"]?.ToString() ?? "",
-                                    Type = ResourceType.WindowsService
-                                });
+                                    tempItems.Add(new DiscoveredResource
+                                    {
+                                        Name = name ?? "Unknown",
+                                        Status = queryObj["State"]?.ToString() ?? "Unknown",
+                                        Details = queryObj["Description"]?.ToString() ?? "",
+                                        Type = ResourceType.WindowsService
+                                    });
+                                }
                             }
                         }
 #pragma warning restore CA1416 // Validate platform compatibility
@@ -91,13 +95,16 @@ public partial class MainWindow : Window
                     {
                         using (p)
                         {
-                            tempItems.Add(new DiscoveredResource
+                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                             {
-                                Name = p.ProcessName,
-                                Status = "Running",
-                                Details = $"PID: {p.Id}",
-                                Type = ResourceType.Process
-                            });
+                                tempItems.Add(new DiscoveredResource
+                                {
+                                    Name = p.ProcessName,
+                                    Status = "Running",
+                                    Details = $"PID: {p.Id}",
+                                    Type = ResourceType.Process
+                                });
+                            }
                         }
                     }
                 }

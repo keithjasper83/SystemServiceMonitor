@@ -10,7 +10,7 @@ public class ProcessHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.Process;
 
-    public Task<HealthCheckResult> CheckHealthAsync(Resource resource, System.Threading.CancellationToken cancellationToken = default)
+    public Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
