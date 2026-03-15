@@ -58,10 +58,11 @@ public partial class MainWindow : Window
         var filter = TxtResourceFilter.Text?.Trim();
         DiscoveredResources.Clear();
 
-        await Task.Run(() =>
+        try
         {
-            try
+            var discoveredItems = await Task.Run(() =>
             {
+                var tempItems = new System.Collections.Generic.List<DiscoveredResource>();
                 if (type == ResourceType.WindowsService)
                 {
                     if (OperatingSystem.IsWindows())
@@ -73,15 +74,12 @@ public partial class MainWindow : Window
                             var name = queryObj["Name"]?.ToString();
                             if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
                             {
-                                Dispatcher.Invoke(() =>
+                                tempItems.Add(new DiscoveredResource
                                 {
-                                    DiscoveredResources.Add(new DiscoveredResource
-                                    {
-                                        Name = name ?? "Unknown",
-                                        Status = queryObj["State"]?.ToString() ?? "Unknown",
-                                        Details = queryObj["Description"]?.ToString() ?? "",
-                                        Type = ResourceType.WindowsService
-                                    });
+                                    Name = name ?? "Unknown",
+                                    Status = queryObj["State"]?.ToString() ?? "Unknown",
+                                    Details = queryObj["Description"]?.ToString() ?? "",
+                                    Type = ResourceType.WindowsService
                                 });
                             }
                         }
@@ -95,15 +93,12 @@ public partial class MainWindow : Window
                     {
                         if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                         {
-                            Dispatcher.Invoke(() =>
+                            tempItems.Add(new DiscoveredResource
                             {
-                                DiscoveredResources.Add(new DiscoveredResource
-                                {
-                                    Name = p.ProcessName,
-                                    Status = "Running",
-                                    Details = $"PID: {p.Id}",
-                                    Type = ResourceType.Process
-                                });
+                                Name = p.ProcessName,
+                                Status = "Running",
+                                Details = $"PID: {p.Id}",
+                                Type = ResourceType.Process
                             });
                         }
                     }
@@ -115,12 +110,21 @@ public partial class MainWindow : Window
                         MessageBox.Show($"Discovery for {type} is not fully implemented or requires external CLI parsing.");
                     });
                 }
-            }
-            catch (Exception ex)
+                return tempItems;
+            });
+
+            if (discoveredItems == null) return;
+
+            // Update UI on the main thread once
+            foreach (var item in discoveredItems)
             {
-                Dispatcher.Invoke(() => MessageBox.Show($"Error discovering resources: {ex.Message}"));
+                DiscoveredResources.Add(item);
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error discovering resources: {ex.Message}");
+        }
     }
 
     private async void BtnAddDiscovered_Click(object sender, RoutedEventArgs e)

@@ -9,7 +9,7 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.Docker;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource)
+    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, System.Threading.CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
@@ -35,8 +35,8 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
             using var process = Process.Start(processInfo);
             if (process != null)
             {
-                await process.WaitForExitAsync();
-                var output = (await process.StandardOutput.ReadToEndAsync()).Trim();
+                await process.WaitForExitAsync(cancellationToken);
+                var output = (await process.StandardOutput.ReadToEndAsync(cancellationToken)).Trim();
 
                 if (process.ExitCode == 0 && output.Equals("running", StringComparison.OrdinalIgnoreCase))
                 {

@@ -64,16 +64,30 @@ public class MonitoringEngine : BackgroundService
         var cache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
 
         // Check if resources are cached, if not fetch and cache them
+        // Limit caching to a single polling cycle (15 seconds, or based on pollingInterval)
+        // to prevent stale state. Better yet, invalidate it when a new resource is added.
         if (!cache.TryGetValue("MonitoredResources", out System.Collections.Generic.List<Resource>? resources) || resources == null)
         {
             resources = await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken);
-            cache.Set("MonitoredResources", resources, TimeSpan.FromMinutes(1)); // Cache for 1 minute
+
+            // Getting the polling interval here
+            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+            {
+                pollingInterval = 10;
+            }
+            cache.Set("MonitoredResources", resources, TimeSpan.FromSeconds(pollingInterval));
         }
 
         // Keep track of modified resources to save to DB
         var modifiedResources = new System.Collections.Concurrent.ConcurrentBag<Resource>();
 
-        await Parallel.ForEachAsync(resources, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = stoppingToken }, async (resource, token) =>
+        // Cap parallelism for external checks to avoid overloading external systems
+        const int MaxParallelHealthChecks = 8;
+        var maxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, MaxParallelHealthChecks);
+
+        await Parallel.ForEachAsync(resources, new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism, CancellationToken = stoppingToken }, async (resource, token) =>
         {
             // Pause monitoring if target desired state is Stopped
             if (resource.DesiredState == ResourceState.Stopped)
@@ -147,7 +161,13 @@ public class MonitoringEngine : BackgroundService
             await dbContext.SaveChangesAsync(stoppingToken);
 
             // Update cache to reflect changes
-            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromMinutes(1));
+            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+            {
+                pollingInterval = 10;
+            }
+            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromSeconds(pollingInterval));
         }
     }
 }

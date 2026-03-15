@@ -14,7 +14,7 @@ public class HealthCheckManager : IHealthCheckManager
 {
     private readonly IReadOnlyDictionary<ResourceType, IHealthCheckProvider> _providerCache;
     private readonly ILogger<HealthCheckManager> _logger;
-    private readonly AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ResourceType, AsyncCircuitBreakerPolicy> _circuitBreakerPolicies = new();
     private readonly AsyncPolicy _timeoutPolicy;
 
     public HealthCheckManager(IEnumerable<IHealthCheckProvider> providers, ILogger<HealthCheckManager> logger)
@@ -28,18 +28,26 @@ public class HealthCheckManager : IHealthCheckManager
         _timeoutPolicy = Policy.TimeoutAsync(TimeSpan.FromSeconds(15));
 
         // Break circuit after 5 consecutive exceptions, wait 30 seconds before retrying
-        _circuitBreakerPolicy = Policy
-            .Handle<Exception>()
-            .CircuitBreakerAsync(
-                exceptionsAllowedBeforeBreaking: 5,
-                durationOfBreak: TimeSpan.FromSeconds(30),
-                onBreak: (ex, breakDelay) =>
-                {
-                    _logger.LogWarning(ex, "Health check circuit broken. Halting checks for {Duration} seconds.", breakDelay.TotalSeconds);
-                },
-                onReset: () => _logger.LogInformation("Health check circuit reset. Checks resuming."),
-                onHalfOpen: () => _logger.LogInformation("Health check circuit half-open. Testing next check.")
-            );
+        // We create these policies per-provider/type lazily below
+    }
+
+    private AsyncCircuitBreakerPolicy GetCircuitBreakerPolicy(ResourceType type)
+    {
+        return _circuitBreakerPolicies.GetOrAdd(type, t =>
+        {
+            return Policy
+                .Handle<Exception>()
+                .CircuitBreakerAsync(
+                    exceptionsAllowedBeforeBreaking: 5,
+                    durationOfBreak: TimeSpan.FromSeconds(30),
+                    onBreak: (ex, breakDelay) =>
+                    {
+                        _logger.LogWarning(ex, "Health check circuit broken for type {ResourceType}. Halting checks for {Duration} seconds.", t, breakDelay.TotalSeconds);
+                    },
+                    onReset: () => _logger.LogInformation("Health check circuit reset for type {ResourceType}. Checks resuming.", t),
+                    onHalfOpen: () => _logger.LogInformation("Health check circuit half-open for type {ResourceType}. Testing next check.", t)
+                );
+        });
     }
 
     public async Task<HealthCheckResult> ExecuteCheckAsync(Resource resource, CancellationToken cancellationToken = default)
@@ -56,9 +64,14 @@ public class HealthCheckManager : IHealthCheckManager
 
         try
         {
-            // Execute with Polly resilience policies and inject CancellationToken
-            return await _circuitBreakerPolicy.WrapAsync(_timeoutPolicy)
-                .ExecuteAsync(async (ct) => await provider.CheckHealthAsync(resource), cancellationToken);
+            var circuitBreakerPolicy = GetCircuitBreakerPolicy(resource.Type);
+
+            // Execute with Polly resilience policies and propagate the policy CancellationToken into the provider
+            return await circuitBreakerPolicy
+                .WrapAsync(_timeoutPolicy)
+                .ExecuteAsync(
+                    (ct) => provider.CheckHealthAsync(resource, ct),
+                    cancellationToken);
         }
         catch (Polly.Timeout.TimeoutRejectedException ex)
         {
