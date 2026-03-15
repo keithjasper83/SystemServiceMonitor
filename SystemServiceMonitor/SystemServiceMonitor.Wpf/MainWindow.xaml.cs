@@ -58,12 +58,11 @@ public partial class MainWindow : Window
         var filter = TxtResourceFilter.Text?.Trim();
         DiscoveredResources.Clear();
 
-        var discovered = new System.Collections.Generic.List<DiscoveredResource>();
-
-        await Task.Run(() =>
+        try
         {
-            try
+            var discoveredItems = await Task.Run(() =>
             {
+                var tempItems = new System.Collections.Generic.List<DiscoveredResource>();
                 if (type == ResourceType.WindowsService)
                 {
                     if (OperatingSystem.IsWindows())
@@ -74,17 +73,13 @@ public partial class MainWindow : Window
                         {
                             using (queryObj)
                             {
-                                var name = queryObj["Name"]?.ToString();
-                                if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+                                tempItems.Add(new DiscoveredResource
                                 {
-                                    discovered.Add(new DiscoveredResource
-                                    {
-                                        Name = name ?? "Unknown",
-                                        Status = queryObj["State"]?.ToString() ?? "Unknown",
-                                        Details = queryObj["Description"]?.ToString() ?? "",
-                                        Type = ResourceType.WindowsService
-                                    });
-                                }
+                                    Name = name ?? "Unknown",
+                                    Status = queryObj["State"]?.ToString() ?? "Unknown",
+                                    Details = queryObj["Description"]?.ToString() ?? "",
+                                    Type = ResourceType.WindowsService
+                                });
                             }
                         }
 #pragma warning restore CA1416 // Validate platform compatibility
@@ -96,16 +91,13 @@ public partial class MainWindow : Window
                     {
                         using (p)
                         {
-                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                            tempItems.Add(new DiscoveredResource
                             {
-                                discovered.Add(new DiscoveredResource
-                                {
-                                    Name = p.ProcessName,
-                                    Status = "Running",
-                                    Details = $"PID: {p.Id}",
-                                    Type = ResourceType.Process
-                                });
-                            }
+                                Name = p.ProcessName,
+                                Status = "Running",
+                                Details = $"PID: {p.Id}",
+                                Type = ResourceType.Process
+                            });
                         }
                     }
                 }
@@ -116,16 +108,20 @@ public partial class MainWindow : Window
                         MessageBox.Show($"Discovery for {type} is not fully implemented or requires external CLI parsing.");
                     });
                 }
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() => MessageBox.Show($"Error discovering resources: {ex.Message}"));
-            }
-        });
+                return tempItems;
+            });
 
-        foreach (var item in discovered)
+            if (discoveredItems == null) return;
+
+            // Update UI on the main thread once
+            foreach (var item in discoveredItems)
+            {
+                DiscoveredResources.Add(item);
+            }
+        }
+        catch (Exception ex)
         {
-            DiscoveredResources.Add(item);
+            MessageBox.Show($"Error discovering resources: {ex.Message}");
         }
     }
 

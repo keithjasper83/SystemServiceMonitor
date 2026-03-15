@@ -10,7 +10,7 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.Wsl;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
+    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, System.Threading.CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
@@ -36,9 +36,8 @@ public class WslHealthCheckProvider : IHealthCheckProvider
             using var process = Process.Start(processInfo);
             if (process != null)
             {
-                var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
                 await process.WaitForExitAsync(cancellationToken);
-                result.Output = await outputTask;
+                result.Output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
 
                 if (process.ExitCode == 0)
                 {
