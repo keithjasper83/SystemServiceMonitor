@@ -58,7 +58,7 @@ public class HealthCheckManager : IHealthCheckManager
         {
             // Execute with Polly resilience policies and inject CancellationToken
             return await _circuitBreakerPolicy.WrapAsync(_timeoutPolicy)
-                .ExecuteAsync(async (ct) => await provider.CheckHealthAsync(resource), cancellationToken);
+                .ExecuteAsync((ct) => provider.CheckHealthAsync(resource, ct), cancellationToken);
         }
         catch (Polly.Timeout.TimeoutRejectedException ex)
         {
@@ -71,7 +71,7 @@ public class HealthCheckManager : IHealthCheckManager
         }
         catch (BrokenCircuitException ex)
         {
-            _logger.LogWarning("Circuit breaker open. Health check aborted for resource: {ResourceId}. Exception: {Message}", resource.Id, ex.Message);
+            _logger.LogWarning(ex, "Circuit breaker open. Health check aborted for resource: {ResourceId}.", resource.Id);
             return new HealthCheckResult
             {
                 HealthState = HealthState.Unknown,

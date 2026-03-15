@@ -17,7 +17,7 @@ public class HttpHealthCheckProvider : IHealthCheckProvider
 
     public ResourceType TargetType => ResourceType.Http;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource)
+    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
@@ -40,7 +40,8 @@ public class HttpHealthCheckProvider : IHealthCheckProvider
                 timeoutSeconds = 300;
             }
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
             var response = await _httpClient.GetAsync(resource.HealthcheckCommand, cts.Token);
 
             if (response.IsSuccessStatusCode)

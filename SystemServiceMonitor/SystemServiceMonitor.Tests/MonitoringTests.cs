@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Moq;
@@ -49,7 +50,7 @@ public class MonitoringTests
     {
         var mockProvider = new Mock<IHealthCheckProvider>();
         mockProvider.Setup(p => p.TargetType).Returns(ResourceType.Process);
-        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>())).ReturnsAsync(new HealthCheckResult { HealthState = HealthState.Healthy });
+        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<CancellationToken>())).ReturnsAsync(new HealthCheckResult { HealthState = HealthState.Healthy });
 
         var logger = new Mock<ILogger<HealthCheckManager>>();
         var manager = new HealthCheckManager(new[] { mockProvider.Object }, logger.Object);

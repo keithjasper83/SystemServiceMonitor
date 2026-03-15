@@ -58,6 +58,8 @@ public partial class MainWindow : Window
         var filter = TxtResourceFilter.Text?.Trim();
         DiscoveredResources.Clear();
 
+        var discovered = new System.Collections.Generic.List<DiscoveredResource>();
+
         await Task.Run(() =>
         {
             try
@@ -70,19 +72,19 @@ public partial class MainWindow : Window
                         using var searcher = new ManagementObjectSearcher("SELECT Name, State, Description FROM Win32_Service");
                         foreach (ManagementObject queryObj in searcher.Get())
                         {
-                            var name = queryObj["Name"]?.ToString();
-                            if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+                            using (queryObj)
                             {
-                                Dispatcher.Invoke(() =>
+                                var name = queryObj["Name"]?.ToString();
+                                if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    DiscoveredResources.Add(new DiscoveredResource
+                                    discovered.Add(new DiscoveredResource
                                     {
                                         Name = name ?? "Unknown",
                                         Status = queryObj["State"]?.ToString() ?? "Unknown",
                                         Details = queryObj["Description"]?.ToString() ?? "",
                                         Type = ResourceType.WindowsService
                                     });
-                                });
+                                }
                             }
                         }
 #pragma warning restore CA1416 // Validate platform compatibility
@@ -90,21 +92,20 @@ public partial class MainWindow : Window
                 }
                 else if (type == ResourceType.Process)
                 {
-                    var processes = Process.GetProcesses();
-                    foreach (var p in processes)
+                    foreach (var p in Process.GetProcesses())
                     {
-                        if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                        using (p)
                         {
-                            Dispatcher.Invoke(() =>
+                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                             {
-                                DiscoveredResources.Add(new DiscoveredResource
+                                discovered.Add(new DiscoveredResource
                                 {
                                     Name = p.ProcessName,
                                     Status = "Running",
                                     Details = $"PID: {p.Id}",
                                     Type = ResourceType.Process
                                 });
-                            });
+                            }
                         }
                     }
                 }
@@ -121,6 +122,11 @@ public partial class MainWindow : Window
                 Dispatcher.Invoke(() => MessageBox.Show($"Error discovering resources: {ex.Message}"));
             }
         });
+
+        foreach (var item in discovered)
+        {
+            DiscoveredResources.Add(item);
+        }
     }
 
     private async void BtnAddDiscovered_Click(object sender, RoutedEventArgs e)
@@ -142,7 +148,9 @@ public partial class MainWindow : Window
                 Id = Guid.NewGuid().ToString(),
                 DisplayName = item.Name,
                 Type = item.Type,
-                DesiredState = ResourceState.Running
+                DesiredState = ResourceState.Running,
+                // StartCommand is the key identifier used by health check providers and controllers
+                StartCommand = item.Name
             };
             db.Resources.Add(res);
         }
