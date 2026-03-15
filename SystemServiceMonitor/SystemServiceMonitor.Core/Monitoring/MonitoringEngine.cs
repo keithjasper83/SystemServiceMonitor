@@ -32,7 +32,7 @@ public class MonitoringEngine : BackgroundService
 
         var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
         var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
-        if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+        if (!int.TryParse(pollingIntervalStr, out int pollingInterval) || pollingInterval < 1)
         {
             pollingInterval = 10;
         }
@@ -147,11 +147,14 @@ public class MonitoringEngine : BackgroundService
         // Save modifications to database in a thread-safe manner
         if (!modifiedResources.IsEmpty)
         {
+            var modifiedIds = modifiedResources.Select(r => r.Id).ToHashSet();
+            var trackedResources = await dbContext.Resources
+                .Where(r => modifiedIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, stoppingToken);
+
             foreach (var modResource in modifiedResources)
             {
-                // Attach and update existing entities or rely on update
-                var trackedResource = await dbContext.Resources.FindAsync(new object[] { modResource.Id }, stoppingToken);
-                if (trackedResource != null)
+                if (trackedResources.TryGetValue(modResource.Id, out var trackedResource))
                 {
                     trackedResource.HealthState = modResource.HealthState;
                     trackedResource.ObservedState = modResource.ObservedState;

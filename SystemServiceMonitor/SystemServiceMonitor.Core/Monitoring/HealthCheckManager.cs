@@ -84,7 +84,7 @@ public class HealthCheckManager : IHealthCheckManager
         }
         catch (BrokenCircuitException ex)
         {
-            _logger.LogWarning("Circuit breaker open. Health check aborted for resource: {ResourceId}. Exception: {Message}", resource.Id, ex.Message);
+            _logger.LogWarning(ex, "Circuit breaker open. Health check aborted for resource: {ResourceId}.", resource.Id);
             return new HealthCheckResult
             {
                 HealthState = HealthState.Unknown,

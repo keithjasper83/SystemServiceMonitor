@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using SystemServiceMonitor.Core.Models;
 
@@ -8,7 +9,7 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.WindowsService;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, System.Threading.CancellationToken cancellationToken = default)
+    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
