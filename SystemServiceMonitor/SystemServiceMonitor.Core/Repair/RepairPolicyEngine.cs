@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,9 +17,9 @@ public class RepairPolicyEngine : IRepairPolicyEngine
     private readonly ILogger<RepairPolicyEngine> _logger;
     private readonly IServiceProvider _serviceProvider;
 
-    // Track consecutive failures per resource ID
-    private readonly Dictionary<string, int> _failureCounts = new();
-    private readonly Dictionary<string, DateTime> _lastRepairAttempt = new();
+    // Track consecutive failures per resource ID (thread-safe for concurrent monitoring)
+    private readonly ConcurrentDictionary<string, int> _failureCounts = new();
+    private readonly ConcurrentDictionary<string, DateTime> _lastRepairAttempt = new();
 
     public RepairPolicyEngine(IEnumerable<IResourceController> controllers, ILogger<RepairPolicyEngine> logger, IServiceProvider serviceProvider)
     {
@@ -108,7 +109,7 @@ public class RepairPolicyEngine : IRepairPolicyEngine
 
     public void ResetFailures(string resourceId)
     {
-        _failureCounts.Remove(resourceId);
-        _lastRepairAttempt.Remove(resourceId);
+        _failureCounts.TryRemove(resourceId, out _);
+        _lastRepairAttempt.TryRemove(resourceId, out _);
     }
 }

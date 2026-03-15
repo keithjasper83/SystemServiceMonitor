@@ -18,6 +18,32 @@
         </tb:TaskbarIcon>
 
         <TabControl>
+            <TabItem Header="Resource Discovery">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="10">
+                        <Label Content="Resource Type:" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
+                        <Label Content="Filter/Path:" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" />
+                        <Button Content="Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" />
+                    </StackPanel>
+                    <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
+                            <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
+                        <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
             <TabItem Header="Dashboard">
                 <Grid>
                     <Grid.RowDefinitions>

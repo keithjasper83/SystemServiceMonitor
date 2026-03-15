@@ -6,6 +6,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using SystemServiceMonitor.Core.Data;
 using SystemServiceMonitor.Core.Models;
 using SystemServiceMonitor.Core.Repair;
@@ -28,6 +30,13 @@ public class MonitoringEngine : BackgroundService
     {
         _logger.LogInformation("Monitoring Engine starting.");
 
+        var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+        var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+        if (!int.TryParse(pollingIntervalStr, out int pollingInterval) || pollingInterval < 1)
+        {
+            pollingInterval = 10;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -39,7 +48,7 @@ public class MonitoringEngine : BackgroundService
                 _logger.LogError(ex, "Error occurred during monitoring cycle.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken); // Simple 10-second polling
+            await Task.Delay(TimeSpan.FromSeconds(pollingInterval), stoppingToken);
         }
 
         _logger.LogInformation("Monitoring Engine stopped.");
@@ -52,18 +61,42 @@ public class MonitoringEngine : BackgroundService
         var healthCheckManager = scope.ServiceProvider.GetRequiredService<IHealthCheckManager>();
         var repairPolicyEngine = scope.ServiceProvider.GetService<IRepairPolicyEngine>();
         var gitHubMonitor = scope.ServiceProvider.GetService<IGitHubChangeMonitor>();
+        var cache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
 
-        var resources = await dbContext.Resources.ToListAsync(stoppingToken);
+        // Check if resources are cached, if not fetch and cache them
+        // Limit caching to a single polling cycle (15 seconds, or based on pollingInterval)
+        // to prevent stale state. Better yet, invalidate it when a new resource is added.
+        if (!cache.TryGetValue("MonitoredResources", out System.Collections.Generic.List<Resource>? resources) || resources == null)
+        {
+            resources = await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken);
 
-        foreach (var resource in resources)
+            // Getting the polling interval here
+            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+            {
+                pollingInterval = 10;
+            }
+            cache.Set("MonitoredResources", resources, TimeSpan.FromSeconds(pollingInterval));
+        }
+
+        // Keep track of modified resources to save to DB
+        var modifiedResources = new System.Collections.Concurrent.ConcurrentBag<Resource>();
+
+        // Cap parallelism for external checks to avoid overloading external systems
+        const int MaxParallelHealthChecks = 8;
+        var maxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, MaxParallelHealthChecks);
+
+        await Parallel.ForEachAsync(resources, new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism, CancellationToken = stoppingToken }, async (resource, token) =>
         {
             // Pause monitoring if target desired state is Stopped
             if (resource.DesiredState == ResourceState.Stopped)
             {
-                continue;
+                return;
             }
 
-            var result = await healthCheckManager.ExecuteCheckAsync(resource);
+            var result = await healthCheckManager.ExecuteCheckAsync(resource, token);
+            bool hasChanges = false;
 
             if (resource.HealthState != result.HealthState)
             {
@@ -71,6 +104,7 @@ public class MonitoringEngine : BackgroundService
                     resource.Id, resource.DisplayName, resource.HealthState, result.HealthState, result.Message);
 
                 resource.HealthState = result.HealthState;
+                hasChanges = true;
 
                 // Sync ObservedState based on HealthState
                 if (result.HealthState == HealthState.Healthy)
@@ -94,6 +128,8 @@ public class MonitoringEngine : BackgroundService
             if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running && repairPolicyEngine != null)
             {
                 await repairPolicyEngine.HandleUnhealthyResourceAsync(resource);
+                // Assume repair policy changes state, let's mark it
+                hasChanges = true;
             }
 
             // Optional GitHub monitoring
@@ -101,8 +137,40 @@ public class MonitoringEngine : BackgroundService
             {
                 await gitHubMonitor.CheckForChangesAsync(resource);
             }
-        }
 
-        await dbContext.SaveChangesAsync(stoppingToken);
+            if (hasChanges)
+            {
+                modifiedResources.Add(resource);
+            }
+        });
+
+        // Save modifications to database in a thread-safe manner
+        if (!modifiedResources.IsEmpty)
+        {
+            var modifiedIds = modifiedResources.Select(r => r.Id).ToHashSet();
+            var trackedResources = await dbContext.Resources
+                .Where(r => modifiedIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, stoppingToken);
+
+            foreach (var modResource in modifiedResources)
+            {
+                if (trackedResources.TryGetValue(modResource.Id, out var trackedResource))
+                {
+                    trackedResource.HealthState = modResource.HealthState;
+                    trackedResource.ObservedState = modResource.ObservedState;
+                    trackedResource.RepairState = modResource.RepairState;
+                }
+            }
+            await dbContext.SaveChangesAsync(stoppingToken);
+
+            // Update cache to reflect changes
+            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
+            {
+                pollingInterval = 10;
+            }
+            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromSeconds(pollingInterval));
+        }
     }
 }

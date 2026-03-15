@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using SystemServiceMonitor.Core.Models;
 
@@ -9,7 +10,7 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.Wsl;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource)
+    public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
 
@@ -35,8 +36,8 @@ public class WslHealthCheckProvider : IHealthCheckProvider
             using var process = Process.Start(processInfo);
             if (process != null)
             {
-                await process.WaitForExitAsync();
-                result.Output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync(cancellationToken);
+                result.Output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
 
                 if (process.ExitCode == 0)
                 {

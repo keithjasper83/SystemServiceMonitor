@@ -14,11 +14,16 @@ using System.Diagnostics;
 
 namespace SystemServiceMonitor.Wpf;
 
+using System.Collections.ObjectModel;
+using System.Management;
+
 public partial class MainWindow : Window
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
+
+    public ObservableCollection<DiscoveredResource> DiscoveredResources { get; } = new();
 
     public MainWindow(IServiceProvider serviceProvider, ILogger<MainWindow> logger)
     {
@@ -30,7 +35,132 @@ public partial class MainWindow : Window
         this.WindowState = WindowState.Minimized;
         this.Hide();
 
+        CmbResourceType.ItemsSource = Enum.GetValues(typeof(ResourceType));
+        DiscoveryGrid.ItemsSource = DiscoveredResources;
+
         Loaded += MainWindow_Loaded;
+    }
+
+    private void CmbResourceType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        // Add any UI logic needed when selection changes
+    }
+
+    private async void BtnDiscover_Click(object sender, RoutedEventArgs e)
+    {
+        if (CmbResourceType.SelectedItem == null)
+        {
+            MessageBox.Show("Please select a resource type.");
+            return;
+        }
+
+        var type = (ResourceType)CmbResourceType.SelectedItem;
+        var filter = TxtResourceFilter.Text?.Trim();
+        DiscoveredResources.Clear();
+
+        try
+        {
+            var discoveredItems = await Task.Run(() =>
+            {
+                var tempItems = new System.Collections.Generic.List<DiscoveredResource>();
+                if (type == ResourceType.WindowsService)
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+#pragma warning disable CA1416 // Validate platform compatibility
+                        using var searcher = new ManagementObjectSearcher("SELECT Name, State, Description FROM Win32_Service");
+                        foreach (ManagementObject queryObj in searcher.Get())
+                        {
+                            using (queryObj)
+                            {
+                                var name = queryObj["Name"]?.ToString();
+                                if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    tempItems.Add(new DiscoveredResource
+                                    {
+                                        Name = name ?? "Unknown",
+                                        Status = queryObj["State"]?.ToString() ?? "Unknown",
+                                        Details = queryObj["Description"]?.ToString() ?? "",
+                                        Type = ResourceType.WindowsService
+                                    });
+                                }
+                            }
+                        }
+#pragma warning restore CA1416 // Validate platform compatibility
+                    }
+                }
+                else if (type == ResourceType.Process)
+                {
+                    foreach (var p in Process.GetProcesses())
+                    {
+                        using (p)
+                        {
+                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                            {
+                                tempItems.Add(new DiscoveredResource
+                                {
+                                    Name = p.ProcessName,
+                                    Status = "Running",
+                                    Details = $"PID: {p.Id}",
+                                    Type = ResourceType.Process
+                                });
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"Discovery for {type} is not fully implemented or requires external CLI parsing.");
+                    });
+                }
+                return tempItems;
+            });
+
+            if (discoveredItems == null) return;
+
+            // Update UI on the main thread once
+            foreach (var item in discoveredItems)
+            {
+                DiscoveredResources.Add(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error discovering resources: {ex.Message}");
+        }
+    }
+
+    private async void BtnAddDiscovered_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = DiscoveryGrid.SelectedItems.Cast<DiscoveredResource>().ToList();
+        if (!selected.Any())
+        {
+            MessageBox.Show("Select resources to add.");
+            return;
+        }
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        foreach (var item in selected)
+        {
+            var res = new Resource
+            {
+                Id = Guid.NewGuid().ToString(),
+                DisplayName = item.Name,
+                Type = item.Type,
+                DesiredState = ResourceState.Running,
+                // StartCommand is the key identifier used by health check providers and controllers
+                StartCommand = item.Name
+            };
+            db.Resources.Add(res);
+        }
+
+        await db.SaveChangesAsync();
+        await LoadResourcesAsync();
+        MessageBox.Show($"Added {selected.Count} resources to Dashboard.");
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -220,4 +350,12 @@ public partial class MainWindow : Window
             AiLogTextBox.Text += $"\n\nFailed to execute AI command: {ex.Message}";
         }
     }
+}
+
+public class DiscoveredResource
+{
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string Details { get; set; } = string.Empty;
+    public ResourceType Type { get; set; }
 }

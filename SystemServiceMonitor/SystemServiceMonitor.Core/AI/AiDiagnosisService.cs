@@ -3,31 +3,49 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
+using System.Security.Cryptography;
+using System.Text;
 using SystemServiceMonitor.Core.Models;
 
 namespace SystemServiceMonitor.Core.AI;
 
 public interface IAiDiagnosisService
 {
-    Task<AiDiagnosisResponse?> GetDiagnosisAsync(Resource resource, string recentLogs);
+    Task<AiDiagnosisResponse?> GetDiagnosisAsync(Resource resource, string recentLogs, CancellationToken cancellationToken = default);
 }
 
 public class AiDiagnosisService : IAiDiagnosisService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<AiDiagnosisService> _logger;
-    private const string AiEndpoint = "http://127.0.0.1:1234/v1/chat/completions";
+    private readonly IConfiguration _configuration;
+    private readonly IMemoryCache _cache;
+    private readonly string _aiEndpoint;
 
-    public AiDiagnosisService(HttpClient httpClient, ILogger<AiDiagnosisService> logger)
+    public AiDiagnosisService(HttpClient httpClient, ILogger<AiDiagnosisService> logger, IConfiguration configuration, IMemoryCache cache)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _configuration = configuration;
+        _cache = cache;
+        _aiEndpoint = _configuration["AI:EndpointUrl"] ?? "http://127.0.0.1:1234/v1/chat/completions";
     }
 
-    public async Task<AiDiagnosisResponse?> GetDiagnosisAsync(Resource resource, string recentLogs)
+    public async Task<AiDiagnosisResponse?> GetDiagnosisAsync(Resource resource, string recentLogs, CancellationToken cancellationToken = default)
     {
+        var cacheKey = GetCacheKey(resource.Id, recentLogs);
+
+        if (_cache.TryGetValue(cacheKey, out AiDiagnosisResponse? cachedResponse))
+        {
+            _logger.LogInformation("Returning cached AI diagnosis for resource {ResourceId}", resource.Id);
+            return cachedResponse;
+        }
+
         try
         {
             var prompt = $@"
@@ -56,11 +74,11 @@ Ensure your entire response is valid JSON matching this structure.
                 temperature = 0.1
             };
 
-            var response = await _httpClient.PostAsJsonAsync(AiEndpoint, requestBody);
+            var response = await _httpClient.PostAsJsonAsync(_aiEndpoint, requestBody, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
                 // Parse OpenAI compatible response
                 using var jsonDoc = JsonDocument.Parse(content);
@@ -77,6 +95,13 @@ Ensure your entire response is valid JSON matching this structure.
                     var result = JsonSerializer.Deserialize<AiDiagnosisResponse>(aiMessage, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                     _logger.LogInformation("AI Diagnosis received for {Resource}. Summary: {Summary}", resource.Id, result?.Summary);
+
+                    if (result != null)
+                    {
+                        // Cache the diagnosis for 5 minutes
+                        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
+                    }
+
                     return result;
                 }
             }
@@ -91,6 +116,13 @@ Ensure your entire response is valid JSON matching this structure.
         }
 
         return null;
+    }
+
+    private string GetCacheKey(string resourceId, string logs)
+    {
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(resourceId + logs));
+        return "AiDiag_" + Convert.ToBase64String(hash);
     }
 }
 

@@ -52,6 +52,8 @@ public partial class App : Application
                 services.AddTransient<IAiDiagnosisService, AiDiagnosisService>();
                 services.AddSingleton<IMcpToolExecutionEngine, McpToolExecutionEngine>();
 
+                services.AddMemoryCache();
+
                 // Background Service
                 services.AddHostedService<MonitoringEngine>();
 
