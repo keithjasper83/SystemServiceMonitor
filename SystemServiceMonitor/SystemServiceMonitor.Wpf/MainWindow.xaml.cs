@@ -31,6 +31,30 @@ public partial class MainWindow : Window
         _serviceProvider = serviceProvider;
         _logger = logger;
 
+        // TODO [Jules]: DO NOT TOUCH THE ICON FILE (icon.ico). It has been fixed. Replacing it or modifying it manually causes XamlParseException.
+
+        // TODO [Jules]: Modernize UI and Window layout:
+        // - Implement the Dashboard as the main visible window at all times.
+        // - Add Drag & Drop (D&D) support to the Dashboard grid so users can manually set service display order.
+        // - Move "Add Item" to an expandable left side-panel, making the dashboard shrink to ~50% width when open.
+        // - Move AI Diagnosis output to an expandable right side-panel that can hide the left panel if necessary.
+        // - Move the Log Viewer into a dockable/minimizable bottom panel with Visual Studio-style coloring (red for Errors, yellow for Warnings).
+        // - Establish a unified starting list of common services/processes as placeholders or suggestions when no config exists.
+
+        // TODO [Jules]: Implement automatic Dashboard refresh:
+        // - Add a System.Windows.Threading.DispatcherTimer here.
+        // - Choose a sensible tick interval (e.g., 3-5 seconds).
+        // - Refresh the bounds and states on tick.
+
+        // TODO [Jules]: Keyboard shortcuts & accessibility:
+        // - Document keyboard shortcuts.
+        // - Bind the TxtResourceFilter (filter text box) to respond to "Enter" as a substitute for clicking the discover/search button.
+        // - Configure logical key-selectors (access keys) across menus and buttons (e.g., Alt+D for discover, Alt+A for add).
+
+        // TODO [Jules]: Testing & CI/CD:
+        // - Write extensive unit and UI/integration tests for these new behaviors.
+        // - The CI/CD has been updated to build & test completely. Ensure all new code adheres strictly so it builds first time, every time.
+
         // Hide window initially to act as tray app
         this.WindowState = WindowState.Minimized;
         this.Hide();
@@ -44,6 +68,15 @@ public partial class MainWindow : Window
     private void CmbResourceType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         // Add any UI logic needed when selection changes
+    }
+
+    private void TxtResourceFilter_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            // Trigger discovery or filter search when user presses Enter
+            BtnDiscover_Click(sender, new RoutedEventArgs());
+        }
     }
 
     private async void BtnDiscover_Click(object sender, RoutedEventArgs e)

@@ -6,6 +6,7 @@
     <Grid>
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="SystemServiceMonitor"
+                        <!-- TODO [Jules]: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
                         IconSource="pack://application:,,,/icon.ico"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.ContextMenu>
@@ -29,8 +30,9 @@
                         <Label Content="Resource Type:" VerticalAlignment="Center" />
                         <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
                         <Label Content="Filter/Path:" VerticalAlignment="Center" />
-                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" />
-                        <Button Content="Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" />
+                        <!-- TODO [Jules]: Ensure this TxtResourceFilter textbox natively supports pressing "Enter" to trigger the Discover/Search click. -->
+                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
+                        <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
                     </StackPanel>
                     <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">
                         <DataGrid.Columns>
@@ -53,13 +55,16 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Orientation="Horizontal" Margin="10">
-                        <Button Content="Add Resource" Width="100" Margin="0,0,10,0" Click="BtnAddResource_Click" />
-                        <Button Content="Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnEditResource_Click" />
-                        <Button Content="Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
-                        <Button Content="AI Diagnosis" Width="100" Margin="0,0,10,0" Click="BtnAiDiagnosis_Click" ToolTip="Diagnose selected failing resource" />
-                        <Button Content="Execute Repair" Width="100" Margin="0,0,10,0" Click="BtnExecuteRepair_Click" ToolTip="Execute AI Recommended Action" IsEnabled="False" x:Name="BtnExecuteRepair" />
+                        <!-- TODO [Jules]: Make "Add Resource" slide an expandable side-panel from the left and shrink this dashboard content to half screen. Use logical accelerator keys (e.g. Content="_Add Resource"). -->
+                        <Button Content="_Add Resource" Width="100" Margin="0,0,10,0" Click="BtnAddResource_Click" />
+                        <Button Content="_Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnEditResource_Click" />
+                        <Button Content="_Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
+                        <!-- TODO [Jules]: Make "AI Diagnosis" output slide an expandable side-panel from the right, optionally hiding the left panel if it is active. -->
+                        <Button Content="AI D_iagnosis" Width="100" Margin="0,0,10,0" Click="BtnAiDiagnosis_Click" ToolTip="Diagnose selected failing resource" />
+                        <Button Content="E_xecute Repair" Width="100" Margin="0,0,10,0" Click="BtnExecuteRepair_Click" ToolTip="Execute AI Recommended Action" IsEnabled="False" x:Name="BtnExecuteRepair" />
                     </StackPanel>
 
+                    <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
                     <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
@@ -77,9 +82,11 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Logs">
+                <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
                 <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
             </TabItem>
             <TabItem Header="AI Diagnosis Output">
+                <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
                 <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
             </TabItem>
         </TabControl>
