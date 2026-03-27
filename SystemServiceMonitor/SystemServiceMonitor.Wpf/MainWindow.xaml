@@ -4,9 +4,9 @@
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="SystemServiceMonitor Dashboard" Height="600" Width="900" WindowStartupLocation="CenterScreen">
     <Grid>
+        <!-- NOTE: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="SystemServiceMonitor"
-                        <!-- TODO [Jules]: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
                         IconSource="pack://application:,,,/icon.ico"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.ContextMenu>
