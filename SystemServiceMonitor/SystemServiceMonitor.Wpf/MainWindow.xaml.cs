@@ -31,7 +31,7 @@ public partial class MainWindow : Window
         _serviceProvider = serviceProvider;
         _logger = logger;
 
-        // TODO [Jules]: DO NOT TOUCH THE ICON FILE (icon.ico). It has been fixed. Replacing it or modifying it manually causes XamlParseException.
+        // NOTE: DO NOT TOUCH THE ICON FILE (icon.ico). It has been fixed. Replacing it or modifying it manually causes XamlParseException.
 
         // TODO [Jules]: Modernize UI and Window layout:
         // - Implement the Dashboard as the main visible window at all times.
