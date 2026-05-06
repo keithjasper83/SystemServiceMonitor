@@ -47,12 +47,13 @@ public class WindowsServiceResourceController : IResourceController
             var processInfo = new ProcessStartInfo
             {
                 FileName = "sc.exe",
-                Arguments = $"{action} {serviceName}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
+            processInfo.ArgumentList.Add(action);
+            processInfo.ArgumentList.Add(serviceName);
 
             var process = Process.Start(processInfo);
             if (process != null)

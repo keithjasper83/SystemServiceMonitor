@@ -22,16 +22,19 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
 
         try
         {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "sc.exe",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            processInfo.ArgumentList.Add("query");
+            processInfo.ArgumentList.Add(resource.StartCommand);
+
             var process = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "sc.exe",
-                    Arguments = $"query {resource.StartCommand}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                StartInfo = processInfo
             };
 
             process.Start();

@@ -26,12 +26,14 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
             var processInfo = new ProcessStartInfo
             {
                 FileName = "docker",
-                Arguments = $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            processInfo.ArgumentList.Add("inspect");
+            processInfo.ArgumentList.Add("--format={{.State.Status}}");
+            processInfo.ArgumentList.Add(resource.DockerIdentifier);
 
             using var process = Process.Start(processInfo);
             if (process != null)
