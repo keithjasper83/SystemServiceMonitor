@@ -89,59 +89,7 @@ public class MonitoringEngine : BackgroundService
 
         await Parallel.ForEachAsync(resources, new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism, CancellationToken = stoppingToken }, async (resource, token) =>
         {
-            // Pause monitoring if target desired state is Stopped
-            if (resource.DesiredState == ResourceState.Stopped)
-            {
-                return;
-            }
-
-            var result = await healthCheckManager.ExecuteCheckAsync(resource, token);
-            bool hasChanges = false;
-
-            if (resource.HealthState != result.HealthState)
-            {
-                _logger.LogInformation("Resource {ResourceId} ({Name}) state changed from {OldState} to {NewState}: {Message}",
-                    resource.Id, resource.DisplayName, resource.HealthState, result.HealthState, result.Message);
-
-                resource.HealthState = result.HealthState;
-                hasChanges = true;
-
-                // Sync ObservedState based on HealthState
-                if (result.HealthState == HealthState.Healthy)
-                {
-                    resource.ObservedState = ResourceState.Running;
-                    resource.RepairState = RepairState.None;
-
-                    repairPolicyEngine?.ResetFailures(resource.Id);
-                }
-                else if (result.HealthState == HealthState.Unhealthy)
-                {
-                    resource.ObservedState = ResourceState.Error;
-                }
-                else if (result.HealthState == HealthState.Unknown)
-                {
-                    resource.ObservedState = ResourceState.Unknown;
-                }
-            }
-
-            // Trigger Repair Policy if Unhealthy
-            if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running && repairPolicyEngine != null)
-            {
-                await repairPolicyEngine.HandleUnhealthyResourceAsync(resource);
-                // Assume repair policy changes state, let's mark it
-                hasChanges = true;
-            }
-
-            // Optional GitHub monitoring
-            if (gitHubMonitor != null && !string.IsNullOrWhiteSpace(resource.GitHubRepoUrl))
-            {
-                await gitHubMonitor.CheckForChangesAsync(resource);
-            }
-
-            if (hasChanges)
-            {
-                modifiedResources.Add(resource);
-            }
+            await ProcessResourceAsync(resource, healthCheckManager, repairPolicyEngine, gitHubMonitor, modifiedResources, token);
         });
 
         // Save modifications to database in a thread-safe manner
@@ -171,6 +119,69 @@ public class MonitoringEngine : BackgroundService
                 pollingInterval = 10;
             }
             cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromSeconds(pollingInterval));
+        }
+    }
+
+    private async Task ProcessResourceAsync(
+        Resource resource,
+        IHealthCheckManager healthCheckManager,
+        IRepairPolicyEngine? repairPolicyEngine,
+        IGitHubChangeMonitor? gitHubMonitor,
+        System.Collections.Concurrent.ConcurrentBag<Resource> modifiedResources,
+        CancellationToken token)
+    {
+        // Pause monitoring if target desired state is Stopped
+        if (resource.DesiredState == ResourceState.Stopped)
+        {
+            return;
+        }
+
+        var result = await healthCheckManager.ExecuteCheckAsync(resource, token);
+        bool hasChanges = false;
+
+        if (resource.HealthState != result.HealthState)
+        {
+            _logger.LogInformation("Resource {ResourceId} ({Name}) state changed from {OldState} to {NewState}: {Message}",
+                resource.Id, resource.DisplayName, resource.HealthState, result.HealthState, result.Message);
+
+            resource.HealthState = result.HealthState;
+            hasChanges = true;
+
+            // Sync ObservedState based on HealthState
+            if (result.HealthState == HealthState.Healthy)
+            {
+                resource.ObservedState = ResourceState.Running;
+                resource.RepairState = RepairState.None;
+
+                repairPolicyEngine?.ResetFailures(resource.Id);
+            }
+            else if (result.HealthState == HealthState.Unhealthy)
+            {
+                resource.ObservedState = ResourceState.Error;
+            }
+            else if (result.HealthState == HealthState.Unknown)
+            {
+                resource.ObservedState = ResourceState.Unknown;
+            }
+        }
+
+        // Trigger Repair Policy if Unhealthy
+        if (result.HealthState == HealthState.Unhealthy && resource.DesiredState == ResourceState.Running && repairPolicyEngine != null)
+        {
+            await repairPolicyEngine.HandleUnhealthyResourceAsync(resource);
+            // Assume repair policy changes state, let's mark it
+            hasChanges = true;
+        }
+
+        // Optional GitHub monitoring
+        if (gitHubMonitor != null && !string.IsNullOrWhiteSpace(resource.GitHubRepoUrl))
+        {
+            await gitHubMonitor.CheckForChangesAsync(resource);
+        }
+
+        if (hasChanges)
+        {
+            modifiedResources.Add(resource);
         }
     }
 }
