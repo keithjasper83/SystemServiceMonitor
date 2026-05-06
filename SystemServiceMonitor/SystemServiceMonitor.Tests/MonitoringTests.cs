@@ -12,14 +12,18 @@ namespace SystemServiceMonitor.Tests;
 
 public class MonitoringTests
 {
-    [Fact]
-    public async Task ProcessHealthCheck_ReturnsUnknown_WhenNoExecutable()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessHealthCheck_ReturnsUnknown_WhenNoExecutable(string startCommand)
     {
         var provider = new ProcessHealthCheckProvider();
-        var resource = new Resource { Type = ResourceType.Process, StartCommand = null };
+        var resource = new Resource { Type = ResourceType.Process, StartCommand = startCommand };
         var result = await provider.CheckHealthAsync(resource);
 
         Assert.Equal(HealthState.Unknown, result.HealthState);
+        Assert.Equal("No executable specified.", result.Message);
     }
 
     [Fact]
