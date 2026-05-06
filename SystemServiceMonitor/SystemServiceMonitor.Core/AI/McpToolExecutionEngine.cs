@@ -66,28 +66,13 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
         try
         {
-             var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {commandLine}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var result = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                "cmd.exe",
+                $"/c {commandLine}"
+            );
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var err = await process.StandardError.ReadToEndAsync();
-
-                _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, process.ExitCode);
-                return (true, $"{output}\n{err}".Trim());
-            }
-
-            return (false, "Failed to start process.");
+            _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, result.ExitCode);
+            return (true, $"{result.Output}\n{result.Error}".Trim());
         }
         catch (Exception ex)
         {

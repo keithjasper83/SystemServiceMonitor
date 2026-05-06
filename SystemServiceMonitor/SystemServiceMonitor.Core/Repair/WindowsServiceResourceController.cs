@@ -44,29 +44,15 @@ public class WindowsServiceResourceController : IResourceController
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "sc.exe",
-                Arguments = $"{action} {serviceName}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var result = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                "sc.exe",
+                $"{action} {serviceName}"
+            );
 
-            var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var err = await process.StandardError.ReadToEndAsync();
+            _logger.LogInformation("sc.exe {Action} {ServiceName} exited with {Code}. Out: {Out}, Err: {Err}", action, serviceName, result.ExitCode, result.Output, result.Error);
 
-                _logger.LogInformation("sc.exe {Action} {ServiceName} exited with {Code}. Out: {Out}, Err: {Err}", action, serviceName, process.ExitCode, output, err);
-
-                // Allow exit code 1056 (already running) or 1062 (not started) to loosely pass
-                return process.ExitCode == 0 || process.ExitCode == 1056 || process.ExitCode == 1062;
-            }
-            return false;
+            // Allow exit code 1056 (already running) or 1062 (not started) to loosely pass
+            return result.ExitCode == 0 || result.ExitCode == 1056 || result.ExitCode == 1062;
         }
         catch (Exception ex)
         {

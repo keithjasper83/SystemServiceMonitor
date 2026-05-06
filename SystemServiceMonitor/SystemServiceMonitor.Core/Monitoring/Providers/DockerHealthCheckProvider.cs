@@ -23,39 +23,25 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var processResult = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                "docker",
+                $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}",
+                cancellationToken: cancellationToken
+            );
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync(cancellationToken);
-                var output = (await process.StandardOutput.ReadToEndAsync(cancellationToken)).Trim();
+            var output = processResult.Output.Trim();
 
-                if (process.ExitCode == 0 && output.Equals("running", StringComparison.OrdinalIgnoreCase))
-                {
-                    result.HealthState = HealthState.Healthy;
-                    result.Message = $"Docker container {resource.DockerIdentifier} is running.";
-                }
-                else
-                {
-                    result.HealthState = HealthState.Unhealthy;
-                    result.Message = $"Docker container {resource.DockerIdentifier} status is {output}.";
-                }
-                result.Output = output;
+            if (processResult.ExitCode == 0 && output.Equals("running", StringComparison.OrdinalIgnoreCase))
+            {
+                result.HealthState = HealthState.Healthy;
+                result.Message = $"Docker container {resource.DockerIdentifier} is running.";
             }
             else
             {
-                 result.HealthState = HealthState.Unhealthy;
-                 result.Message = "Failed to start docker process.";
+                result.HealthState = HealthState.Unhealthy;
+                result.Message = $"Docker container {resource.DockerIdentifier} status is {output}.";
             }
+            result.Output = output;
         }
         catch (Exception ex)
         {
