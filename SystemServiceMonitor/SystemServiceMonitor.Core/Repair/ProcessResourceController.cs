@@ -88,7 +88,7 @@ public class ProcessResourceController : IResourceController
         return await StartAsync(resource);
     }
 
-    private async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
+    protected virtual async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
     {
          try
         {
