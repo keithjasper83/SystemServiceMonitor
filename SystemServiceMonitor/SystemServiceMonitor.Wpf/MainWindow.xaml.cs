@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
+    private readonly System.Windows.Threading.DispatcherTimer _refreshTimer;
 
     public ObservableCollection<DiscoveredResource> DiscoveredResources { get; } = new();
 
@@ -41,10 +42,12 @@ public partial class MainWindow : Window
         // - Move the Log Viewer into a dockable/minimizable bottom panel with Visual Studio-style coloring (red for Errors, yellow for Warnings).
         // - Establish a unified starting list of common services/processes as placeholders or suggestions when no config exists.
 
-        // TODO [Jules]: Implement automatic Dashboard refresh:
-        // - Add a System.Windows.Threading.DispatcherTimer here.
-        // - Choose a sensible tick interval (e.g., 3-5 seconds).
-        // - Refresh the bounds and states on tick.
+        _refreshTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _refreshTimer.Tick += RefreshTimer_Tick;
+        _refreshTimer.Start();
 
         // TODO [Jules]: Keyboard shortcuts & accessibility:
         // - Document keyboard shortcuts.
@@ -194,6 +197,20 @@ public partial class MainWindow : Window
         await db.SaveChangesAsync();
         await LoadResourcesAsync();
         MessageBox.Show($"Added {selected.Count} resources to Dashboard.");
+    }
+
+    private async void RefreshTimer_Tick(object? sender, EventArgs e)
+    {
+        _refreshTimer.Stop();
+        try
+        {
+            await LoadResourcesAsync();
+            await LoadLogsAsync();
+        }
+        finally
+        {
+            _refreshTimer.Start();
+        }
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
