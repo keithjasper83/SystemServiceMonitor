@@ -52,8 +52,8 @@ public class WslHealthCheckProvider : IHealthCheckProvider
             }
             else
             {
-                 result.HealthState = HealthState.Unhealthy;
-                 result.Message = "Failed to start wsl.exe process.";
+                result.HealthState = HealthState.Unhealthy;
+                result.Message = "Failed to start wsl.exe process.";
             }
         }
         catch (Exception ex)

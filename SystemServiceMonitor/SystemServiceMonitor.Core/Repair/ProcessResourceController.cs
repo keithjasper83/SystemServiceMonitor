@@ -51,7 +51,7 @@ public class ProcessResourceController : IResourceController
     {
         if (!string.IsNullOrWhiteSpace(resource.StopCommand))
         {
-             return await RunCommandAsync(resource.StopCommand, resource.WorkingDirectory, resource.TimeoutSeconds);
+            return await RunCommandAsync(resource.StopCommand, resource.WorkingDirectory, resource.TimeoutSeconds);
         }
 
         // Fallback: kill process
@@ -90,7 +90,7 @@ public class ProcessResourceController : IResourceController
 
     private async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
     {
-         try
+        try
         {
             var processInfo = new ProcessStartInfo
             {
@@ -104,22 +104,22 @@ public class ProcessResourceController : IResourceController
             };
 
             var p = Process.Start(processInfo);
-            if(p != null)
+            if (p != null)
             {
-                 var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
-                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
+                var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
 
-                 try
-                 {
-                     await p.WaitForExitAsync(cts.Token);
-                     return p.ExitCode == 0;
-                 }
-                 catch (OperationCanceledException)
-                 {
-                     _logger.LogWarning("Command timed out: {Command}", command);
-                     p.Kill();
-                     return false;
-                 }
+                try
+                {
+                    await p.WaitForExitAsync(cts.Token);
+                    return p.ExitCode == 0;
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("Command timed out: {Command}", command);
+                    p.Kill();
+                    return false;
+                }
             }
             return false;
         }

@@ -53,8 +53,8 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
             }
             else
             {
-                 result.HealthState = HealthState.Unhealthy;
-                 result.Message = "Failed to start docker process.";
+                result.HealthState = HealthState.Unhealthy;
+                result.Message = "Failed to start docker process.";
             }
         }
         catch (Exception ex)

@@ -11,6 +11,7 @@ using SystemServiceMonitor.Core.Models;
 using SystemServiceMonitor.Core.AI;
 using SystemServiceMonitor.Core.Repair;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace SystemServiceMonitor.Wpf;
 
@@ -22,6 +23,36 @@ public partial class MainWindow : Window
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct PROCESSENTRY32
+    {
+        public uint dwSize;
+        public uint cntUsage;
+        public uint th32ProcessID;
+        public IntPtr th32DefaultHeapID;
+        public uint th32ModuleID;
+        public uint cntThreads;
+        public uint th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool Process32First(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool Process32Next(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hHandle);
+
+    private const uint TH32CS_SNAPPROCESS = 0x00000002;
 
     public ObservableCollection<DiscoveredResource> DiscoveredResources { get; } = new();
 
@@ -124,20 +155,41 @@ public partial class MainWindow : Window
                 }
                 else if (type == ResourceType.Process)
                 {
-                    foreach (var p in Process.GetProcesses())
+                    bool hasFilter = !string.IsNullOrEmpty(filter);
+                    IntPtr handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+                    if (handle != IntPtr.Zero && handle != new IntPtr(-1))
                     {
-                        using (p)
+                        try
                         {
-                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                            PROCESSENTRY32 pe32 = new PROCESSENTRY32();
+                            pe32.dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32));
+
+                            if (Process32First(handle, ref pe32))
                             {
-                                tempItems.Add(new DiscoveredResource
+                                do
                                 {
-                                    Name = p.ProcessName,
-                                    Status = "Running",
-                                    Details = $"PID: {p.Id}",
-                                    Type = ResourceType.Process
-                                });
+                                    string procName = pe32.szExeFile;
+                                    if (procName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        procName = procName.Substring(0, procName.Length - 4);
+                                    }
+
+                                    if (!hasFilter || procName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        tempItems.Add(new DiscoveredResource
+                                        {
+                                            Name = procName,
+                                            Status = "Running",
+                                            Details = $"PID: {pe32.th32ProcessID}",
+                                            Type = ResourceType.Process
+                                        });
+                                    }
+                                } while (Process32Next(handle, ref pe32));
                             }
+                        }
+                        finally
+                        {
+                            CloseHandle(handle);
                         }
                     }
                 }

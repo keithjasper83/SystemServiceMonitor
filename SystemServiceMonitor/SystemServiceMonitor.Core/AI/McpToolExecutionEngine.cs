@@ -66,7 +66,7 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
         try
         {
-             var processInfo = new ProcessStartInfo
+            var processInfo = new ProcessStartInfo
             {
                 FileName = "cmd.exe",
                 Arguments = $"/c {commandLine}",
@@ -91,8 +91,8 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Exception executing MCP Tool {Command}", commandLine);
-             return (false, ex.Message);
+            _logger.LogError(ex, "Exception executing MCP Tool {Command}", commandLine);
+            return (false, ex.Message);
         }
     }
 }
