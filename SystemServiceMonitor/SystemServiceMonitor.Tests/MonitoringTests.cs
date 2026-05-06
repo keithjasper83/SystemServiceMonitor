@@ -60,4 +60,22 @@ public class MonitoringTests
 
         Assert.Equal(HealthState.Healthy, result.HealthState);
     }
+
+    [Fact]
+    public async Task HealthCheckManager_ReturnsUnhealthy_WhenProviderThrowsException()
+    {
+        var mockProvider = new Mock<IHealthCheckProvider>();
+        mockProvider.Setup(p => p.TargetType).Returns(ResourceType.Process);
+        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<System.Threading.CancellationToken>()))
+            .ThrowsAsync(new System.Exception("Test exception"));
+
+        var logger = new Mock<ILogger<HealthCheckManager>>();
+        var manager = new HealthCheckManager(new[] { mockProvider.Object }, logger.Object);
+
+        var resource = new Resource { Type = ResourceType.Process };
+        var result = await manager.ExecuteCheckAsync(resource);
+
+        Assert.Equal(HealthState.Unhealthy, result.HealthState);
+        Assert.Contains("Test exception", result.Message);
+    }
 }
