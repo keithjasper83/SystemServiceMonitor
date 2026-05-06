@@ -34,6 +34,18 @@ public class MonitoringTests
     }
 
     [Fact]
+    public async Task HttpHealthCheck_ReturnsUnknown_WhenBlankUrl()
+    {
+        var httpClient = new HttpClient();
+        var provider = new HttpHealthCheckProvider(httpClient);
+        var resource = new Resource { Type = ResourceType.Http, HealthcheckCommand = "   " };
+        var result = await provider.CheckHealthAsync(resource);
+
+        Assert.Equal(HealthState.Unknown, result.HealthState);
+        Assert.Equal("No URL specified in HealthcheckCommand.", result.Message);
+    }
+
+    [Fact]
     public async Task HealthCheckManager_ReturnsUnknown_WhenNoProvider()
     {
         var providers = new IHealthCheckProvider[] { };
