@@ -46,14 +46,6 @@ public partial class MainWindow : Window
         // - Choose a sensible tick interval (e.g., 3-5 seconds).
         // - Refresh the bounds and states on tick.
 
-        // TODO [Jules]: Keyboard shortcuts & accessibility:
-        // - Document keyboard shortcuts.
-        // - Bind the TxtResourceFilter (filter text box) to respond to "Enter" as a substitute for clicking the discover/search button.
-        // - Configure logical key-selectors (access keys) across menus and buttons (e.g., Alt+D for discover, Alt+A for add).
-
-        // TODO [Jules]: Testing & CI/CD:
-        // - Write extensive unit and UI/integration tests for these new behaviors.
-        // - The CI/CD has been updated to build & test completely. Ensure all new code adheres strictly so it builds first time, every time.
 
         // Hide window initially to act as tray app
         this.WindowState = WindowState.Minimized;
@@ -76,6 +68,7 @@ public partial class MainWindow : Window
         {
             // Trigger discovery or filter search when user presses Enter
             BtnDiscover_Click(sender, new RoutedEventArgs());
+            e.Handled = true;
         }
     }
 
