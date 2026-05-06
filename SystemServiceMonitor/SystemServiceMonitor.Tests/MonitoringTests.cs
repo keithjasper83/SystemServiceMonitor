@@ -1,8 +1,10 @@
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System;
 using Xunit;
 using Moq;
+using Moq.Protected;
 using Microsoft.Extensions.Logging;
 using SystemServiceMonitor.Core.Models;
 using SystemServiceMonitor.Core.Monitoring;
@@ -31,6 +33,28 @@ public class MonitoringTests
         var result = await provider.CheckHealthAsync(resource);
 
         Assert.Equal(HealthState.Unknown, result.HealthState);
+    }
+
+    [Fact]
+    public async Task HttpHealthCheck_ReturnsUnhealthy_OnException()
+    {
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+        var httpClient = new HttpClient(handlerMock.Object);
+        var provider = new HttpHealthCheckProvider(httpClient);
+        var resource = new Resource { Type = ResourceType.Http, HealthcheckCommand = "http://localhost:12345/health" };
+
+        var result = await provider.CheckHealthAsync(resource);
+
+        Assert.Equal(HealthState.Unhealthy, result.HealthState);
+        Assert.Contains("HTTP check error:", result.Message);
     }
 
     [Fact]
