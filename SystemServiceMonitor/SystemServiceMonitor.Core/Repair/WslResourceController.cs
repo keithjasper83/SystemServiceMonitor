@@ -52,7 +52,7 @@ public class WslResourceController : IResourceController
             var processInfo = new ProcessStartInfo
             {
                 FileName = "wsl.exe",
-                Arguments = $"-d {distroName} -- {command}",
+                ArgumentList = { "-d", distroName, "--", command },
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
