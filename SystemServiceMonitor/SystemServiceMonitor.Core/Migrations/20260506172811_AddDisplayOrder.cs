@@ -1,0 +1,29 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace SystemServiceMonitor.Core.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddDisplayOrder : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<int>(
+                name: "DisplayOrder",
+                table: "Resources",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 0);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "DisplayOrder",
+                table: "Resources");
+        }
+    }
+}
