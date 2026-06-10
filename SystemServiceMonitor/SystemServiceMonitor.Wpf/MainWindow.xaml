@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tb="http://www.hardcodet.net/taskbar"
+        xmlns:local="clr-namespace:SystemServiceMonitor.Wpf"
         Title="SystemServiceMonitor Dashboard" Height="600" Width="900" WindowStartupLocation="CenterScreen">
     <Grid>
         <!-- NOTE: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
@@ -18,36 +19,28 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <TabControl>
-            <TabItem Header="Resource Discovery">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="10">
-                        <Label Content="Resource Type:" VerticalAlignment="Center" />
-                        <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
-                        <Label Content="Filter/Path:" VerticalAlignment="Center" />
-                        <!-- TODO [Jules]: Ensure this TxtResourceFilter textbox natively supports pressing "Enter" to trigger the Discover/Search click. -->
-                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
-                        <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
-                    </StackPanel>
-                    <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
-                            <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
-                        <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
-                    </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="150" />
+            </Grid.RowDefinitions>
+
+            <!-- Top Row: Panels and Dashboard -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Panel -->
+                <Grid x:Name="LeftPanel" Grid.Column="0" Visibility="Collapsed" Width="350" Margin="0,0,10,0">
+                    <local:ResourceFormUserControl x:Name="ResourceFormCtrl" />
                 </Grid>
-            </TabItem>
-            <TabItem Header="Dashboard">
-                <Grid>
+
+                <!-- Center Dashboard -->
+                <Grid Grid.Column="1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -57,6 +50,7 @@
                     <StackPanel Orientation="Horizontal" Margin="10">
                         <!-- TODO [Jules]: Make "Add Resource" slide an expandable side-panel from the left and shrink this dashboard content to half screen. Use logical accelerator keys (e.g. Content="_Add Resource"). -->
                         <Button Content="_Add Resource" Width="100" Margin="0,0,10,0" Click="BtnAddResource_Click" />
+                        <Button Content="Discover" Width="100" Margin="0,0,10,0" Click="BtnDiscoverWindow_Click" />
                         <Button Content="_Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnEditResource_Click" />
                         <Button Content="_Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
                         <!-- TODO [Jules]: Make "AI Diagnosis" output slide an expandable side-panel from the right, optionally hiding the left panel if it is active. -->
@@ -65,7 +59,8 @@
                     </StackPanel>
 
                     <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
-                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged">
+                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged"
+                              AllowDrop="True" PreviewMouseLeftButtonDown="ResourceGrid_PreviewMouseLeftButtonDown" MouseMove="ResourceGrid_MouseMove" Drop="ResourceGrid_Drop">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
                             <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />
@@ -80,15 +75,24 @@
                         <Button Content="Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
                     </StackPanel>
                 </Grid>
-            </TabItem>
-            <TabItem Header="Logs">
-                <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
-                <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
-            </TabItem>
-            <TabItem Header="AI Diagnosis Output">
-                <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
-                <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
-            </TabItem>
-        </TabControl>
+
+                <!-- Right Panel -->
+                <Grid x:Name="RightPanel" Grid.Column="2" Visibility="Collapsed" Width="300" Margin="10,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="AI Diagnosis Output" FontWeight="Bold" Margin="0,0,0,5" />
+                    <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" TextWrapping="Wrap" Grid.Row="1" />
+                </Grid>
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="LightGray" />
+
+            <!-- Bottom Row: Log Viewer -->
+            <Grid Grid.Row="2">
+                <RichTextBox x:Name="LogRichTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" Background="#1E1E1E" Foreground="LightGray" />
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

@@ -23,7 +23,6 @@ public partial class MainWindow : Window
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
 
-    public ObservableCollection<DiscoveredResource> DiscoveredResources { get; } = new();
 
     public MainWindow(IServiceProvider serviceProvider, ILogger<MainWindow> logger)
     {
@@ -59,144 +58,38 @@ public partial class MainWindow : Window
         this.WindowState = WindowState.Minimized;
         this.Hide();
 
-        CmbResourceType.ItemsSource = Enum.GetValues(typeof(ResourceType));
-        DiscoveryGrid.ItemsSource = DiscoveredResources;
+        ResourceFormCtrl.SaveCompleted += ResourceFormCtrl_SaveCompleted;
+        ResourceFormCtrl.Cancelled += ResourceFormCtrl_Cancelled;
 
         Loaded += MainWindow_Loaded;
     }
 
-    private void CmbResourceType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private async void ResourceFormCtrl_SaveCompleted(object? sender, Resource e)
     {
-        // Add any UI logic needed when selection changes
-    }
-
-    private void TxtResourceFilter_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key == System.Windows.Input.Key.Enter)
-        {
-            // Trigger discovery or filter search when user presses Enter
-            BtnDiscover_Click(sender, new RoutedEventArgs());
-        }
-    }
-
-    private async void BtnDiscover_Click(object sender, RoutedEventArgs e)
-    {
-        if (CmbResourceType.SelectedItem == null)
-        {
-            MessageBox.Show("Please select a resource type.");
-            return;
-        }
-
-        var type = (ResourceType)CmbResourceType.SelectedItem;
-        var filter = TxtResourceFilter.Text?.Trim();
-        DiscoveredResources.Clear();
-
-        try
-        {
-            var discoveredItems = await Task.Run(() =>
-            {
-                var tempItems = new System.Collections.Generic.List<DiscoveredResource>();
-                if (type == ResourceType.WindowsService)
-                {
-                    if (OperatingSystem.IsWindows())
-                    {
-#pragma warning disable CA1416 // Validate platform compatibility
-                        using var searcher = new ManagementObjectSearcher("SELECT Name, State, Description FROM Win32_Service");
-                        foreach (ManagementObject queryObj in searcher.Get())
-                        {
-                            using (queryObj)
-                            {
-                                var name = queryObj["Name"]?.ToString();
-                                if (string.IsNullOrEmpty(filter) || (name != null && name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
-                                {
-                                    tempItems.Add(new DiscoveredResource
-                                    {
-                                        Name = name ?? "Unknown",
-                                        Status = queryObj["State"]?.ToString() ?? "Unknown",
-                                        Details = queryObj["Description"]?.ToString() ?? "",
-                                        Type = ResourceType.WindowsService
-                                    });
-                                }
-                            }
-                        }
-#pragma warning restore CA1416 // Validate platform compatibility
-                    }
-                }
-                else if (type == ResourceType.Process)
-                {
-                    foreach (var p in Process.GetProcesses())
-                    {
-                        using (p)
-                        {
-                            if (string.IsNullOrEmpty(filter) || p.ProcessName.Contains(filter, StringComparison.OrdinalIgnoreCase))
-                            {
-                                tempItems.Add(new DiscoveredResource
-                                {
-                                    Name = p.ProcessName,
-                                    Status = "Running",
-                                    Details = $"PID: {p.Id}",
-                                    Type = ResourceType.Process
-                                });
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        MessageBox.Show($"Discovery for {type} is not fully implemented or requires external CLI parsing.");
-                    });
-                }
-                return tempItems;
-            });
-
-            if (discoveredItems == null) return;
-
-            // Update UI on the main thread once
-            foreach (var item in discoveredItems)
-            {
-                DiscoveredResources.Add(item);
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error discovering resources: {ex.Message}");
-        }
-    }
-
-    private async void BtnAddDiscovered_Click(object sender, RoutedEventArgs e)
-    {
-        var selected = DiscoveryGrid.SelectedItems.Cast<DiscoveredResource>().ToList();
-        if (!selected.Any())
-        {
-            MessageBox.Show("Select resources to add.");
-            return;
-        }
-
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        foreach (var item in selected)
+        var existing = db.Resources.Find(e.Id);
+        if (existing == null)
         {
-            var res = new Resource
-            {
-                Id = Guid.NewGuid().ToString(),
-                DisplayName = item.Name,
-                Type = item.Type,
-                DesiredState = ResourceState.Running,
-                // StartCommand is the key identifier used by health check providers and controllers
-                StartCommand = item.Name
-            };
-            db.Resources.Add(res);
+            db.Resources.Add(e);
+        }
+        else
+        {
+            db.Entry(existing).CurrentValues.SetValues(e);
         }
 
         await db.SaveChangesAsync();
+        LeftPanel.Visibility = Visibility.Collapsed;
         await LoadResourcesAsync();
-        MessageBox.Show($"Added {selected.Count} resources to Dashboard.");
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private void ResourceFormCtrl_Cancelled(object? sender, EventArgs e)
+    {
+        LeftPanel.Visibility = Visibility.Collapsed;
+    }
+
+                    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         await LoadResourcesAsync();
         await LoadLogsAsync();
@@ -208,8 +101,18 @@ public partial class MainWindow : Window
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var resources = await db.Resources.ToListAsync();
-            ResourceGrid.ItemsSource = resources;
+            var resources = await db.Resources.OrderBy(r => r.DisplayOrder).ToListAsync();
+
+            if (!resources.Any())
+            {
+                var explorer = new Resource { DisplayName = "Windows Explorer", Type = ResourceType.Process, StartCommand = "explorer", DisplayOrder = 0 };
+                var spooler = new Resource { DisplayName = "Print Spooler", Type = ResourceType.WindowsService, StartCommand = "Spooler", DisplayOrder = 1 };
+                db.Resources.AddRange(explorer, spooler);
+                await db.SaveChangesAsync();
+                resources = await db.Resources.OrderBy(r => r.DisplayOrder).ToListAsync();
+            }
+
+            ResourceGrid.ItemsSource = new ObservableCollection<Resource>(resources);
         }
         catch (Exception ex)
         {
@@ -232,8 +135,30 @@ public partial class MainWindow : Window
                 {
                     using var stream = new FileStream(latestLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                     using var reader = new StreamReader(stream);
-                    LogTextBox.Text = await reader.ReadToEndAsync();
-                    LogTextBox.ScrollToEnd();
+                    var logText = await reader.ReadToEndAsync();
+
+                    LogRichTextBox.Document.Blocks.Clear();
+                    var paragraph = new System.Windows.Documents.Paragraph();
+
+                    foreach (var line in logText.Split(Environment.NewLine))
+                    {
+                        var run = new System.Windows.Documents.Run(line + Environment.NewLine);
+                        if (line.Contains("ERR", StringComparison.OrdinalIgnoreCase) || line.Contains("fail", StringComparison.OrdinalIgnoreCase))
+                        {
+                            run.Foreground = System.Windows.Media.Brushes.Red;
+                        }
+                        else if (line.Contains("WRN", StringComparison.OrdinalIgnoreCase) || line.Contains("warn", StringComparison.OrdinalIgnoreCase))
+                        {
+                            run.Foreground = System.Windows.Media.Brushes.Yellow;
+                        }
+                        else
+                        {
+                            run.Foreground = System.Windows.Media.Brushes.LightGray;
+                        }
+                        paragraph.Inlines.Add(run);
+                    }
+                    LogRichTextBox.Document.Blocks.Add(paragraph);
+                    LogRichTextBox.ScrollToEnd();
                 }
             }
         }
@@ -277,32 +202,20 @@ public partial class MainWindow : Window
         await LoadLogsAsync();
     }
 
-    private async void BtnAddResource_Click(object sender, RoutedEventArgs e)
+    private void BtnAddResource_Click(object sender, RoutedEventArgs e)
     {
-        var form = new ResourceFormWindow();
-        if (form.ShowDialog() == true)
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Resources.Add(form.Resource);
-            await db.SaveChangesAsync();
-            await LoadResourcesAsync();
-        }
+        RightPanel.Visibility = Visibility.Collapsed;
+        ResourceFormCtrl.LoadResource(null);
+        LeftPanel.Visibility = Visibility.Visible;
     }
 
-    private async void BtnEditResource_Click(object sender, RoutedEventArgs e)
+    private void BtnEditResource_Click(object sender, RoutedEventArgs e)
     {
         if (ResourceGrid.SelectedItem is Resource selected)
         {
-            var form = new ResourceFormWindow(selected);
-            if (form.ShowDialog() == true)
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                db.Resources.Update(form.Resource);
-                await db.SaveChangesAsync();
-                await LoadResourcesAsync();
-            }
+            RightPanel.Visibility = Visibility.Collapsed;
+            ResourceFormCtrl.LoadResource(selected);
+            LeftPanel.Visibility = Visibility.Visible;
         }
     }
 
@@ -332,10 +245,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        LeftPanel.Visibility = Visibility.Collapsed;
+        RightPanel.Visibility = Visibility.Visible;
         AiLogTextBox.Text = "Requesting diagnosis from local AI...";
 
         // Grab recent logs
-        var logContext = string.Join(Environment.NewLine, LogTextBox.Text.Split(Environment.NewLine).TakeLast(50));
+
+        var textRange = new System.Windows.Documents.TextRange(LogRichTextBox.Document.ContentStart, LogRichTextBox.Document.ContentEnd);
+        var logContext = string.Join(Environment.NewLine, textRange.Text.Split(Environment.NewLine).TakeLast(50));
+
 
         using var scope = _serviceProvider.CreateScope();
         var aiService = scope.ServiceProvider.GetRequiredService<IAiDiagnosisService>();
@@ -383,12 +301,80 @@ public partial class MainWindow : Window
             AiLogTextBox.Text += $"\n\nFailed to execute AI command: {ex.Message}";
         }
     }
-}
+    private Point _dragStartPoint;
 
-public class DiscoveredResource
-{
-    public string Name { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
-    public string Details { get; set; } = string.Empty;
-    public ResourceType Type { get; set; }
+    private void ResourceGrid_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(null);
+    }
+
+    private void ResourceGrid_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+        {
+            Point currentPoint = e.GetPosition(null);
+            if (Math.Abs(currentPoint.X - _dragStartPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(currentPoint.Y - _dragStartPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                if (ResourceGrid.SelectedItem != null && ResourceGrid.SelectedItem is Resource selected)
+                {
+                    DragDrop.DoDragDrop(ResourceGrid, selected, DragDropEffects.Move);
+                }
+            }
+        }
+    }
+
+    private async void ResourceGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(typeof(Resource)))
+        {
+            var droppedData = e.Data.GetData(typeof(Resource)) as Resource;
+            var target = ((FrameworkElement)e.OriginalSource).DataContext as Resource;
+
+            if (droppedData != null && target != null && droppedData != target)
+            {
+                if (ResourceGrid.ItemsSource is ObservableCollection<Resource> resources)
+                {
+                    int droppedIndex = resources.IndexOf(droppedData);
+                    int targetIndex = resources.IndexOf(target);
+
+                    if (droppedIndex > -1 && targetIndex > -1)
+                    {
+                        resources.RemoveAt(droppedIndex);
+                        resources.Insert(targetIndex, droppedData);
+
+                        // Update display orders
+                        for (int i = 0; i < resources.Count; i++)
+                        {
+                            resources[i].DisplayOrder = i;
+                        }
+
+                        // Save to DB
+                        using var scope = _serviceProvider.CreateScope();
+                        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        foreach (var res in resources)
+                        {
+                            var entry = db.Resources.Find(res.Id);
+                            if (entry != null)
+                            {
+                                entry.DisplayOrder = res.DisplayOrder;
+                            }
+                        }
+                        await db.SaveChangesAsync();
+                    }
+                }
+            }
+        }
+    }
+
+
+    private async void BtnDiscoverWindow_Click(object sender, RoutedEventArgs e)
+    {
+        var discoveryWindow = new ResourceDiscoveryWindow(_serviceProvider);
+        if (discoveryWindow.ShowDialog() == true)
+        {
+            await LoadResourcesAsync();
+        }
+    }
+
 }

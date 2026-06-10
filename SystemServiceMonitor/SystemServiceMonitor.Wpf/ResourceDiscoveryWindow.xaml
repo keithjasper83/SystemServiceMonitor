@@ -1,0 +1,29 @@
+<Window x:Class="SystemServiceMonitor.Wpf.ResourceDiscoveryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Resource Discovery" Height="450" Width="800" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Margin="10">
+            <Label Content="Resource Type:" VerticalAlignment="Center" />
+            <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
+            <Label Content="Filter/Path:" VerticalAlignment="Center" />
+            <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
+            <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
+        </StackPanel>
+        <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
+                <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
+            <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
+        </StackPanel>
+    </Grid>
+</Window>
