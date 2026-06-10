@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>AddRangeBenchmark-20260610-181554</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.30GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.103
+  [Host]     : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>N</th><th>Mean </th><th>Error</th><th>StdDev</th><th>Ratio</th><th>Gen0</th><th>Gen1</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>AddInLoop</td><td>10</td><td>93.10 &mu;s</td><td>0.737 &mu;s</td><td>0.723 &mu;s</td><td>1.00</td><td>1.9531</td><td>0.1221</td><td>45.91 KB</td><td>1.00</td>
+</tr><tr><td>AddRange</td><td>10</td><td>91.28 &mu;s</td><td>0.388 &mu;s</td><td>0.303 &mu;s</td><td>0.98</td><td>1.9531</td><td>0.1221</td><td>45.77 KB</td><td>1.00</td>
+</tr><tr><td>AddInLoop</td><td>100</td><td>494.14 &mu;s</td><td>2.570 &mu;s</td><td>2.146 &mu;s</td><td>1.00</td><td>6.8359</td><td>0.9766</td><td>166.55 KB</td><td>1.00</td>
+</tr><tr><td>AddRange</td><td>100</td><td>464.40 &mu;s</td><td>2.267 &mu;s</td><td>2.121 &mu;s</td><td>0.94</td><td>6.8359</td><td>0.9766</td><td>164.3 KB</td><td>0.99</td>
+</tr><tr><td>AddInLoop</td><td>1000</td><td>4,491.56 &mu;s</td><td>40.922 &mu;s</td><td>38.278 &mu;s</td><td>1.00</td><td>54.6875</td><td>23.4375</td><td>1372.99 KB</td><td>1.00</td>
+</tr><tr><td>AddRange</td><td>1000</td><td>4,221.54 &mu;s</td><td>16.950 &mu;s</td><td>15.855 &mu;s</td><td>0.94</td><td>54.6875</td><td>15.6250</td><td>1349.65 KB</td><td>0.98</td>
+</tr></tbody></table>
+</body>
+</html>
