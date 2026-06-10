@@ -4,6 +4,20 @@
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="SystemServiceMonitor Dashboard" Height="600" Width="900" WindowStartupLocation="CenterScreen">
     <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Left Panel Column (if needed later) -->
+            <ColumnDefinition Width="Auto" />
+            <!-- Main Content Column -->
+            <ColumnDefinition Width="*" />
+            <!-- Right Panel Column -->
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Panel Placeholder -->
+        <Grid x:Name="LeftPanel" Grid.Column="0" Width="300" Visibility="Collapsed" Background="#F9F9F9">
+            <!-- Left panel content will go here in another task -->
+        </Grid>
+
         <!-- NOTE: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="SystemServiceMonitor"
@@ -18,7 +32,7 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <TabControl>
+        <TabControl Grid.Column="1">
             <TabItem Header="Resource Discovery">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -85,10 +99,21 @@
                 <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
                 <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
             </TabItem>
-            <TabItem Header="AI Diagnosis Output">
-                <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
-                <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
-            </TabItem>
+
         </TabControl>
-    </Grid>
+
+        <Grid x:Name="RightPanel" Grid.Column="2" Width="300" Visibility="Collapsed" Background="#F9F9F9">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Orientation="Horizontal" Background="#EEE" Margin="0,0,0,5" HorizontalAlignment="Stretch">
+                <TextBlock Text="AI Diagnosis Output" FontWeight="Bold" Margin="10" VerticalAlignment="Center" />
+                <Button Content="X" Width="20" Height="20" Margin="10" HorizontalAlignment="Right" Click="BtnCloseRightPanel_Click" ToolTip="Close Panel" />
+            </StackPanel>
+
+            <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Grid.Row="1" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
+        </Grid>
+</Grid>
 </Window>
