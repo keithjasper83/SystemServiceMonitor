@@ -66,25 +66,22 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
         try
         {
-             var processInfo = new ProcessStartInfo
+            var processInfo = new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = $"/c {commandLine}",
+                FileName = commandTokens[0],
+                Arguments = commandLine.Substring(commandTokens[0].Length).TrimStart(),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var err = await process.StandardError.ReadToEndAsync();
+            var result = await ExecuteProcessAsync(processInfo);
 
-                _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, process.ExitCode);
-                return (true, $"{output}\n{err}".Trim());
+            if (result.Success)
+            {
+                _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, result.ExitCode);
+                return (true, result.Output);
             }
 
             return (false, "Failed to start process.");
@@ -94,5 +91,23 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
              _logger.LogError(ex, "Exception executing MCP Tool {Command}", commandLine);
              return (false, ex.Message);
         }
+    }
+
+    protected virtual async Task<(bool Success, string Output, int ExitCode)> ExecuteProcessAsync(ProcessStartInfo processInfo)
+    {
+        using var process = Process.Start(processInfo);
+        if (process != null)
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errTask = process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync();
+
+            var output = await outputTask;
+            var err = await errTask;
+
+            return (true, $"{output}\n{err}".Trim(), process.ExitCode);
+        }
+        return (false, string.Empty, -1);
     }
 }
