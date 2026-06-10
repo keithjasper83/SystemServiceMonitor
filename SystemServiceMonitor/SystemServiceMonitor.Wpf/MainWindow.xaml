@@ -65,7 +65,8 @@
                     </StackPanel>
 
                     <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
-                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged">
+                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged"
+                              AllowDrop="True" PreviewMouseLeftButtonDown="ResourceGrid_PreviewMouseLeftButtonDown" MouseMove="ResourceGrid_MouseMove" Drop="ResourceGrid_Drop">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
                             <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />

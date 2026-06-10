@@ -177,8 +177,11 @@ public partial class MainWindow : Window
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        int currentMaxOrder = await db.Resources.AnyAsync() ? await db.Resources.MaxAsync(r => r.DisplayOrder) : -1;
+
         foreach (var item in selected)
         {
+            currentMaxOrder++;
             var res = new Resource
             {
                 Id = Guid.NewGuid().ToString(),
@@ -186,7 +189,8 @@ public partial class MainWindow : Window
                 Type = item.Type,
                 DesiredState = ResourceState.Running,
                 // StartCommand is the key identifier used by health check providers and controllers
-                StartCommand = item.Name
+                StartCommand = item.Name,
+                DisplayOrder = currentMaxOrder
             };
             db.Resources.Add(res);
         }
@@ -208,7 +212,7 @@ public partial class MainWindow : Window
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var resources = await db.Resources.ToListAsync();
+            var resources = await db.Resources.OrderBy(r => r.DisplayOrder).ToListAsync();
             ResourceGrid.ItemsSource = resources;
         }
         catch (Exception ex)
@@ -284,6 +288,8 @@ public partial class MainWindow : Window
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            int maxOrder = await db.Resources.AnyAsync() ? await db.Resources.MaxAsync(r => r.DisplayOrder) : -1;
+            form.Resource.DisplayOrder = maxOrder + 1;
             db.Resources.Add(form.Resource);
             await db.SaveChangesAsync();
             await LoadResourcesAsync();
@@ -315,6 +321,69 @@ public partial class MainWindow : Window
             db.Resources.Remove(selected);
             await db.SaveChangesAsync();
             await LoadResourcesAsync();
+        }
+    }
+
+
+    private bool _isDragging;
+    private Point _startPoint;
+
+    private void ResourceGrid_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _startPoint = e.GetPosition(null);
+    }
+
+    private void ResourceGrid_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && !_isDragging)
+        {
+            Point position = e.GetPosition(null);
+            if (Math.Abs(position.X - _startPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(position.Y - _startPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                if (e.OriginalSource is FrameworkElement frameworkElement && frameworkElement.DataContext is Resource selectedResource)
+                {
+                    _isDragging = true;
+                    DragDrop.DoDragDrop(ResourceGrid, selectedResource, DragDropEffects.Move);
+                    _isDragging = false;
+                }
+            }
+        }
+    }
+
+    private async void ResourceGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(typeof(Resource)))
+        {
+            var droppedResource = e.Data.GetData(typeof(Resource)) as Resource;
+            var targetResource = (e.OriginalSource as FrameworkElement)?.DataContext as Resource;
+
+            if (droppedResource != null && targetResource != null && droppedResource != targetResource)
+            {
+                if (ResourceGrid.ItemsSource is List<Resource> itemsSource)
+                {
+                    int oldIndex = itemsSource.IndexOf(droppedResource);
+                    int newIndex = itemsSource.IndexOf(targetResource);
+
+                    itemsSource.RemoveAt(oldIndex);
+                    itemsSource.Insert(newIndex, droppedResource);
+
+                    // Update DisplayOrder
+                    for (int i = 0; i < itemsSource.Count; i++)
+                    {
+                        itemsSource[i].DisplayOrder = i;
+                    }
+
+                    // Save to DB
+                    using var scope = _serviceProvider.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    db.Resources.UpdateRange(itemsSource);
+                    await db.SaveChangesAsync();
+
+                    // Refresh DataGrid UI safely (re-assign or just refresh depending on binding, we'll reload)
+                    await LoadResourcesAsync();
+                }
+            }
         }
     }
 
