@@ -37,4 +37,32 @@ public class DatabaseInitializerTests
         Assert.Single(resources);
         Assert.Equal("Test Resource", resources[0].DisplayName);
     }
+
+    [Fact]
+    public async Task InitializeAsync_ThrowsAndLogs_WhenMigrationFails()
+    {
+        var services = new ServiceCollection();
+
+        // UseSqlite with intentionally invalid path per instructions to force MigrateAsync to fail
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseSqlite("Data Source=/:/invalid.db"));
+
+        var mockLogger = new Mock<ILogger>();
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
+        mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+        services.AddSingleton<ILoggerFactory>(mockLoggerFactory.Object);
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => DatabaseInitializer.InitializeAsync(serviceProvider));
+
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("An error occurred while migrating the database.")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
 }
