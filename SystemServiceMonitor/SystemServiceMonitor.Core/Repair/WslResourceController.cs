@@ -39,6 +39,11 @@ public class WslResourceController : IResourceController
         return await StartAsync(resource);
     }
 
+    protected virtual Process? StartProcess(ProcessStartInfo info)
+    {
+        return Process.Start(info);
+    }
+
     private async Task<bool> RunWslCommandAsync(string? command, string? distroName)
     {
         if (string.IsNullOrWhiteSpace(command) || string.IsNullOrWhiteSpace(distroName))
@@ -59,7 +64,7 @@ public class WslResourceController : IResourceController
                 RedirectStandardError = true
             };
 
-            var process = Process.Start(processInfo);
+            var process = StartProcess(processInfo);
             if (process != null)
             {
                 await process.WaitForExitAsync();
