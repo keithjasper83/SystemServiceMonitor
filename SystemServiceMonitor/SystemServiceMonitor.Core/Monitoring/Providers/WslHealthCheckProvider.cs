@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Monitoring.Providers;
 
@@ -23,15 +24,10 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "wsl.exe",
-                Arguments = $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var processInfo = ProcessHelper.CreateProcessStartInfo(
+                "wsl.exe",
+                $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}"
+            );
 
             using var process = Process.Start(processInfo);
             if (process != null)

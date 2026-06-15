@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Monitoring.Providers;
 
@@ -23,15 +24,10 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var processInfo = ProcessHelper.CreateProcessStartInfo(
+                "docker",
+                $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}"
+            );
 
             using var process = Process.Start(processInfo);
             if (process != null)

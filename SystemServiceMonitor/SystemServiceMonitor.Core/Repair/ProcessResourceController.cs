@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Repair;
 
@@ -92,16 +93,11 @@ public class ProcessResourceController : IResourceController
     {
          try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {command}",
-                WorkingDirectory = workingDirectory ?? string.Empty,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+            var processInfo = ProcessHelper.CreateProcessStartInfo(
+                "cmd.exe",
+                $"/c {command}"
+            );
+            processInfo.WorkingDirectory = workingDirectory ?? string.Empty;
 
             var p = Process.Start(processInfo);
             if(p != null)
