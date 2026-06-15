@@ -30,8 +30,7 @@
                         <Label Content="Resource Type:" VerticalAlignment="Center" />
                         <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
                         <Label Content="Filter/Path:" VerticalAlignment="Center" />
-                        <!-- TODO [Jules]: Ensure this TxtResourceFilter textbox natively supports pressing "Enter" to trigger the Discover/Search click. -->
-                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
+                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" />
                         <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
                     </StackPanel>
                     <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">

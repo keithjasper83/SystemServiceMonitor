@@ -70,15 +70,6 @@ public partial class MainWindow : Window
         // Add any UI logic needed when selection changes
     }
 
-    private void TxtResourceFilter_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key == System.Windows.Input.Key.Enter)
-        {
-            // Trigger discovery or filter search when user presses Enter
-            BtnDiscover_Click(sender, new RoutedEventArgs());
-        }
-    }
-
     private async void BtnDiscover_Click(object sender, RoutedEventArgs e)
     {
         if (CmbResourceType.SelectedItem == null)
