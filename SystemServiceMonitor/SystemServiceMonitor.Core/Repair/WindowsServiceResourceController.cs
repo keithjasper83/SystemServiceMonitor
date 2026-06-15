@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Repair;
 
@@ -44,15 +45,7 @@ public class WindowsServiceResourceController : IResourceController
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "sc.exe",
-                Arguments = $"{action} {serviceName}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var processInfo = ProcessStartInfoHelper.CreateProcessStartInfo("sc.exe", $"{action} {serviceName}");
 
             var process = Process.Start(processInfo);
             if (process != null)
