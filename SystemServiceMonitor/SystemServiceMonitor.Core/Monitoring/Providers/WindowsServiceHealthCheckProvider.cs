@@ -22,21 +22,7 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "sc.exe",
-                    Arguments = $"query {resource.StartCommand}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            var output = await ExecuteQueryAsync(resource.StartCommand, cancellationToken);
 
             if (output.Contains("STATE") && output.Contains("RUNNING"))
             {
@@ -57,5 +43,25 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
         }
 
         return result;
+    }
+
+    protected virtual async Task<string> ExecuteQueryAsync(string serviceName, CancellationToken cancellationToken)
+    {
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "sc.exe",
+                Arguments = $"query {serviceName}",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        process.Start();
+        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        return output;
     }
 }
