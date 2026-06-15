@@ -56,4 +56,29 @@ public class RepairTests
         await engine.HandleUnhealthyResourceAsync(resource);
         Assert.Equal(RepairState.Quarantined, resource.RepairState);
     }
+
+    [Fact]
+    public async Task RepairPolicyEngine_RecordsFailures_WhenRestartFails_Iteratively()
+    {
+        var mockController = new Mock<IResourceController>();
+        mockController.Setup(c => c.TargetType).Returns(ResourceType.Process);
+        mockController.Setup(c => c.RestartAsync(It.IsAny<Resource>())).ReturnsAsync(false);
+
+        var logger = new Mock<ILogger<RepairPolicyEngine>>();
+        var engine = new RepairPolicyEngine(new[] { mockController.Object }, logger.Object, CreateMockServiceProvider());
+
+        var resource = new Resource { Type = ResourceType.Process, AutoRepairEnabled = true, MaxRetries = 3, CooldownSeconds = 0 };
+
+        for (int i = 0; i < 3; i++)
+        {
+            await engine.HandleUnhealthyResourceAsync(resource);
+            Assert.Equal(RepairState.Retrying, resource.RepairState);
+            await Task.Delay(10);
+        }
+
+        // Attempt 4 (Should fail due to max retries)
+        await engine.HandleUnhealthyResourceAsync(resource);
+        Assert.Equal(RepairState.Quarantined, resource.RepairState);
+        Assert.Equal(ResourceState.Error, resource.ObservedState);
+    }
 }
