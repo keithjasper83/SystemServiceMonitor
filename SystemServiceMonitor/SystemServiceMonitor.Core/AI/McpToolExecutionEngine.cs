@@ -76,23 +76,32 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
                 RedirectStandardError = true
             };
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var err = await process.StandardError.ReadToEndAsync();
-
-                _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, process.ExitCode);
-                return (true, $"{output}\n{err}".Trim());
-            }
-
-            return (false, "Failed to start process.");
+            return await ExecuteProcessAsync(processInfo, commandLine);
         }
         catch (Exception ex)
         {
              _logger.LogError(ex, "Exception executing MCP Tool {Command}", commandLine);
              return (false, ex.Message);
         }
+    }
+
+    protected virtual async Task<(bool IsAllowed, string Output)> ExecuteProcessAsync(ProcessStartInfo processInfo, string commandLine)
+    {
+        using var process = Process.Start(processInfo);
+        if (process != null)
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errTask = process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync();
+
+            var output = await outputTask;
+            var err = await errTask;
+
+            _logger.LogInformation("Executed MCP Tool {Command} - ExitCode: {ExitCode}", commandLine, process.ExitCode);
+            return (true, $"{output}\n{err}".Trim());
+        }
+
+        return (false, "Failed to start process.");
     }
 }
