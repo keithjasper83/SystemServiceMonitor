@@ -324,6 +324,11 @@ public partial class MainWindow : Window
         _currentAiDiagnosis = null;
     }
 
+    private void BtnCloseAiDiagnosis_Click(object sender, RoutedEventArgs e)
+    {
+        AiDiagnosisPanel.Visibility = Visibility.Collapsed;
+    }
+
     private async void BtnAiDiagnosis_Click(object sender, RoutedEventArgs e)
     {
         if (ResourceGrid.SelectedItem is not Resource selected)
@@ -332,6 +337,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        AiDiagnosisPanel.Visibility = Visibility.Visible;
         AiLogTextBox.Text = "Requesting diagnosis from local AI...";
 
         // Grab recent logs
