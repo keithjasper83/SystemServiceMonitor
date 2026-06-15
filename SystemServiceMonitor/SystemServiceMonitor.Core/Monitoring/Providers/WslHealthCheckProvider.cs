@@ -23,15 +23,7 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "wsl.exe",
-                Arguments = $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var processInfo = Utils.ProcessUtils.CreateProcessStartInfo("wsl.exe", $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}");
 
             using var process = Process.Start(processInfo);
             if (process != null)

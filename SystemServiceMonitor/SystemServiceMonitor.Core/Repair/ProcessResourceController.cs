@@ -92,16 +92,7 @@ public class ProcessResourceController : IResourceController
     {
          try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {command}",
-                WorkingDirectory = workingDirectory ?? string.Empty,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+            var processInfo = Utils.ProcessUtils.CreateProcessStartInfo("cmd.exe", $"/c {command}", workingDirectory: workingDirectory ?? string.Empty);
 
             var p = Process.Start(processInfo);
             if(p != null)

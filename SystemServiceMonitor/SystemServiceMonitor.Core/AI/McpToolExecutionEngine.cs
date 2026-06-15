@@ -66,15 +66,7 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
         try
         {
-             var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {commandLine}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+             var processInfo = Utils.ProcessUtils.CreateProcessStartInfo("cmd.exe", $"/c {commandLine}");
 
             using var process = Process.Start(processInfo);
             if (process != null)

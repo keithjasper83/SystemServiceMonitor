@@ -42,15 +42,7 @@ public class DockerResourceController : IResourceController
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = $"{action} {containerIdentifier}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var processInfo = Utils.ProcessUtils.CreateProcessStartInfo("docker", $"{action} {containerIdentifier}");
 
             var process = Process.Start(processInfo);
             if (process != null)
