@@ -20,8 +20,8 @@ public class ProcessResourceControllerTests
         {
             Id = "test-resource",
             Type = ResourceType.Process,
-            StartCommand = "echo", // valid command to avoid file not found from 'echo' itself if possible, though 'echo' works
-            WorkingDirectory = "/invalid/path/that/does/not/exist/12345" // this triggers an exception
+            StartCommand = "some_non_existent_command_that_will_throw_exception_12345",
+            WorkingDirectory = "Z:\\invalid\\path\\that\\does\\not\\exist\\12345" // this reliably triggers an exception on both OSes
         };
 
         // Act
