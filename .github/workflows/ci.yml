@@ -51,6 +51,7 @@ jobs:
       with:
         name: repair-context
         path: repair-context.json
+        retention-days: 10
 
     - name: Fail if tests failed
       if: steps.test.outcome == 'failure'
