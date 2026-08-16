@@ -24,7 +24,7 @@ public class ProcessHealthCheckProvider : IHealthCheckProvider
         try
         {
             var processName = System.IO.Path.GetFileNameWithoutExtension(resource.StartCommand);
-            var processes = Process.GetProcessesByName(processName);
+            var processes = GetProcesses(processName);
 
             if (processes.Any())
             {
@@ -44,5 +44,10 @@ public class ProcessHealthCheckProvider : IHealthCheckProvider
         }
 
         return Task.FromResult(result);
+    }
+
+    protected virtual Process[] GetProcesses(string processName)
+    {
+        return Process.GetProcessesByName(processName);
     }
 }
