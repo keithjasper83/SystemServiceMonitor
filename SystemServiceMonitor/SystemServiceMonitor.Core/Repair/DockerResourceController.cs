@@ -52,7 +52,7 @@ public class DockerResourceController : IResourceController
                 RedirectStandardError = true
             };
 
-            var process = Process.Start(processInfo);
+            var process = StartProcess(processInfo);
             if (process != null)
             {
                 await process.WaitForExitAsync();
@@ -69,5 +69,10 @@ public class DockerResourceController : IResourceController
             _logger.LogError(ex, "Failed to run Docker command.");
             return false;
         }
+    }
+
+    protected virtual Process? StartProcess(ProcessStartInfo processInfo)
+    {
+        return Process.Start(processInfo);
     }
 }
