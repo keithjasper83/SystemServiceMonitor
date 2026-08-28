@@ -177,6 +177,7 @@ public partial class MainWindow : Window
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        var resourcesToAdd = new List<Resource>(selected.Count);
         foreach (var item in selected)
         {
             var res = new Resource
@@ -188,8 +189,9 @@ public partial class MainWindow : Window
                 // StartCommand is the key identifier used by health check providers and controllers
                 StartCommand = item.Name
             };
-            db.Resources.Add(res);
+            resourcesToAdd.Add(res);
         }
+        db.Resources.AddRange(resourcesToAdd);
 
         await db.SaveChangesAsync();
         await LoadResourcesAsync();
