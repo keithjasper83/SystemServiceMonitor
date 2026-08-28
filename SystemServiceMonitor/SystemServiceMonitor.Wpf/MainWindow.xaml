@@ -18,77 +18,147 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <TabControl>
-            <TabItem Header="Resource Discovery">
-                <Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="150" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel (Add Resource) -->
+            <Grid Grid.Row="0" Grid.Column="0" x:Name="LeftPanel" Width="0" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10" x:Name="FormPanel">
+                        <TextBlock Text="Display Name" />
+                        <TextBox x:Name="TxtDisplayName" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Type" />
+                        <ComboBox x:Name="CboType" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Start Command" />
+                        <TextBox x:Name="TxtStartCommand" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Stop Command" />
+                        <TextBox x:Name="TxtStopCommand" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Restart Command" />
+                        <TextBox x:Name="TxtRestartCommand" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Healthcheck URL/Command" />
+                        <TextBox x:Name="TxtHealthcheck" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Working Directory" />
+                        <TextBox x:Name="TxtWorkingDir" Margin="0,0,0,10" />
+
+                        <TextBlock Text="WSL Distro (If applicable)" />
+                        <TextBox x:Name="TxtWslDistro" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Docker Identifier (If applicable)" />
+                        <TextBox x:Name="TxtDockerId" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Dependency IDs (Comma separated)" />
+                        <TextBox x:Name="TxtDependencies" Margin="0,0,0,10" />
+
+                        <TextBlock Text="GitHub Repo URL (Optional)" />
+                        <TextBox x:Name="TxtGitHubRepo" Margin="0,0,0,10" />
+
+                        <CheckBox x:Name="ChkAutoRepair" Content="Auto Repair Enabled" Margin="0,0,0,10" IsChecked="True" />
+                        <CheckBox x:Name="ChkRequiresElevation" Content="Requires Elevation" Margin="0,0,0,10" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                            <Button Content="Cancel" Width="75" Margin="0,0,10,0" Click="BtnCancelForm_Click" />
+                            <Button Content="Save" Width="75" Click="BtnSaveForm_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Center Panel (Dashboard) -->
+            <Grid Grid.Row="0" Grid.Column="1" x:Name="CenterPanel">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Expander Header="Resource Discovery" Grid.Row="0" Margin="10,10,10,0" x:Name="DiscoveryExpander">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
+                            <Label Content="Resource Type:" VerticalAlignment="Center" />
+                            <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
+                            <Label Content="Filter/Path:" VerticalAlignment="Center" />
+                            <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
+                            <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
+                        </StackPanel>
+                        <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,0,10" Grid.Row="1" Height="150">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
+                                <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0" HorizontalAlignment="Right">
+                            <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
+                        </StackPanel>
+                    </Grid>
+                </Expander>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10">
+                    <Button Content="_Add Resource" Width="100" Margin="0,0,10,0" Click="BtnToggleAddResource_Click" />
+                    <Button Content="_Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnToggleEditResource_Click" />
+                    <Button Content="_Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
+                    <Button Content="AI D_iagnosis" Width="100" Margin="0,0,10,0" Click="BtnToggleAiDiagnosis_Click" ToolTip="Diagnose selected failing resource" />
+                    <Button Content="E_xecute Repair" Width="100" Margin="0,0,10,0" Click="BtnExecuteRepair_Click" ToolTip="Execute AI Recommended Action" IsEnabled="False" x:Name="BtnExecuteRepair" />
+                </StackPanel>
+
+                <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="2" SelectionChanged="ResourceGrid_SelectionChanged" AllowDrop="True" PreviewMouseLeftButtonDown="ResourceGrid_PreviewMouseLeftButtonDown" MouseMove="ResourceGrid_MouseMove" DragEnter="ResourceGrid_DragEnter" Drop="ResourceGrid_Drop">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />
+                        <DataGridTextColumn Header="Health" Binding="{Binding HealthState}" Width="80" />
+                        <DataGridTextColumn Header="State" Binding="{Binding ObservedState}" Width="80" />
+                        <DataGridTextColumn Header="Repair State" Binding="{Binding RepairState}" Width="100" />
+                        <DataGridTextColumn Header="Dependencies" Binding="{Binding DependencyIds}" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
+                    <Button Content="Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Right Panel (AI Diagnosis Output) -->
+            <Grid Grid.Row="0" Grid.Column="2" x:Name="RightPanel" Width="0" Visibility="Collapsed">
+                <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="10">
-                        <Label Content="Resource Type:" VerticalAlignment="Center" />
-                        <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
-                        <Label Content="Filter/Path:" VerticalAlignment="Center" />
-                        <!-- TODO [Jules]: Ensure this TxtResourceFilter textbox natively supports pressing "Enter" to trigger the Discover/Search click. -->
-                        <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
-                        <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
-                    </StackPanel>
-                    <DataGrid x:Name="DiscoveryGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
-                            <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
-                        <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
-                    </StackPanel>
+                    <TextBlock Text="AI Diagnosis Output" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <TextBox Grid.Row="1" x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" TextWrapping="Wrap" />
                 </Grid>
-            </TabItem>
-            <TabItem Header="Dashboard">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+            </Grid>
 
-                    <StackPanel Orientation="Horizontal" Margin="10">
-                        <!-- TODO [Jules]: Make "Add Resource" slide an expandable side-panel from the left and shrink this dashboard content to half screen. Use logical accelerator keys (e.g. Content="_Add Resource"). -->
-                        <Button Content="_Add Resource" Width="100" Margin="0,0,10,0" Click="BtnAddResource_Click" />
-                        <Button Content="_Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnEditResource_Click" />
-                        <Button Content="_Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
-                        <!-- TODO [Jules]: Make "AI Diagnosis" output slide an expandable side-panel from the right, optionally hiding the left panel if it is active. -->
-                        <Button Content="AI D_iagnosis" Width="100" Margin="0,0,10,0" Click="BtnAiDiagnosis_Click" ToolTip="Diagnose selected failing resource" />
-                        <Button Content="E_xecute Repair" Width="100" Margin="0,0,10,0" Click="BtnExecuteRepair_Click" ToolTip="Execute AI Recommended Action" IsEnabled="False" x:Name="BtnExecuteRepair" />
-                    </StackPanel>
+            <GridSplitter Grid.Row="1" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" />
 
-                    <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
-                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
-                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />
-                            <DataGridTextColumn Header="Health" Binding="{Binding HealthState}" Width="80" />
-                            <DataGridTextColumn Header="State" Binding="{Binding ObservedState}" Width="80" />
-                            <DataGridTextColumn Header="Repair State" Binding="{Binding RepairState}" Width="100" />
-                            <DataGridTextColumn Header="Dependencies" Binding="{Binding DependencyIds}" Width="100" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
-                        <Button Content="Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
-                    </StackPanel>
-                </Grid>
-            </TabItem>
-            <TabItem Header="Logs">
-                <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
-                <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
-            </TabItem>
-            <TabItem Header="AI Diagnosis Output">
-                <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
-                <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
-            </TabItem>
-        </TabControl>
+            <!-- Bottom Panel (Logs) -->
+            <Grid Grid.Row="2" Grid.ColumnSpan="3" x:Name="BottomPanel">
+                <RichTextBox x:Name="LogRichTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas">
+                    <FlowDocument>
+                        <Paragraph x:Name="LogParagraph" />
+                    </FlowDocument>
+                </RichTextBox>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
