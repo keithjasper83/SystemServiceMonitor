@@ -324,12 +324,18 @@ public partial class MainWindow : Window
         _currentAiDiagnosis = null;
     }
 
-    private async void BtnAiDiagnosis_Click(object sender, RoutedEventArgs e)
+        private async void BtnAiDiagnosis_Click(object sender, RoutedEventArgs e)
     {
         if (ResourceGrid.SelectedItem is not Resource selected)
         {
             MessageBox.Show("Select a resource to diagnose.");
             return;
+        }
+
+        RightPanel.Visibility = Visibility.Visible;
+        if (LeftPanel.Visibility == Visibility.Visible)
+        {
+            LeftPanel.Visibility = Visibility.Collapsed;
         }
 
         AiLogTextBox.Text = "Requesting diagnosis from local AI...";
@@ -382,6 +388,11 @@ public partial class MainWindow : Window
         {
             AiLogTextBox.Text += $"\n\nFailed to execute AI command: {ex.Message}";
         }
+    }
+
+    private void BtnCloseRightPanel_Click(object sender, RoutedEventArgs e)
+    {
+        RightPanel.Visibility = Visibility.Collapsed;
     }
 }
 
