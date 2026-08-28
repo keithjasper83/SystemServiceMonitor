@@ -24,7 +24,7 @@ public class WindowsServiceResourceController : IResourceController
 
     public async Task<bool> StopAsync(Resource resource)
     {
-         return await RunScCommandAsync("stop", resource.StartCommand);
+        return await RunScCommandAsync("stop", resource.StartCommand);
     }
 
     public async Task<bool> RestartAsync(Resource resource)
@@ -34,9 +34,9 @@ public class WindowsServiceResourceController : IResourceController
         return await StartAsync(resource);
     }
 
-     private async Task<bool> RunScCommandAsync(string action, string? serviceName)
+    private async Task<bool> RunScCommandAsync(string action, string? serviceName)
     {
-         if (string.IsNullOrWhiteSpace(serviceName))
+        if (string.IsNullOrWhiteSpace(serviceName))
         {
             _logger.LogWarning("Service name missing for sc.exe {Action}", action);
             return false;

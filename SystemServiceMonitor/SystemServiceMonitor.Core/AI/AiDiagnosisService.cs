@@ -112,7 +112,7 @@ Ensure your entire response is valid JSON matching this structure.
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Failed to get AI diagnosis for resource {Id}", resource.Id);
+            _logger.LogError(ex, "Failed to get AI diagnosis for resource {Id}", resource.Id);
         }
 
         return null;
