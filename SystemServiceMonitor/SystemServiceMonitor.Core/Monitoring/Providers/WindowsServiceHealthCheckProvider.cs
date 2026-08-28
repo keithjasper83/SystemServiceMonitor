@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Monitoring.Providers;
 
@@ -24,14 +25,10 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
         {
             var process = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "sc.exe",
-                    Arguments = $"query {resource.StartCommand}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                StartInfo = ProcessHelper.CreateProcessStartInfo(
+                    "sc.exe",
+                    $"query {resource.StartCommand}"
+                )
             };
 
             process.Start();

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SystemServiceMonitor.Core.Models;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.Repair;
 
@@ -49,15 +50,10 @@ public class WslResourceController : IResourceController
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "wsl.exe",
-                Arguments = $"-d {distroName} -- {command}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var processInfo = ProcessHelper.CreateProcessStartInfo(
+                "wsl.exe",
+                $"-d {distroName} -- {command}"
+            );
 
             var process = Process.Start(processInfo);
             if (process != null)

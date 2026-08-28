@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using SystemServiceMonitor.Core.Utils;
 
 namespace SystemServiceMonitor.Core.AI;
 
@@ -66,15 +67,10 @@ public class McpToolExecutionEngine : IMcpToolExecutionEngine
 
         try
         {
-             var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {commandLine}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var processInfo = ProcessHelper.CreateProcessStartInfo(
+                "cmd.exe",
+                $"/c {commandLine}"
+            );
 
             using var process = Process.Start(processInfo);
             if (process != null)
