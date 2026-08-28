@@ -27,12 +27,13 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "sc.exe",
-                    Arguments = $"query {resource.StartCommand}",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
             };
+            process.StartInfo.ArgumentList.Add("query");
+            process.StartInfo.ArgumentList.Add(resource.StartCommand);
 
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
