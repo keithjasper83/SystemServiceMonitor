@@ -33,27 +33,18 @@ public class WslHealthCheckProvider : IHealthCheckProvider
                 CreateNoWindow = true
             };
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync(cancellationToken);
-                result.Output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var (exitCode, output) = await ExecuteProcessAsync(processInfo, cancellationToken);
+            result.Output = output;
 
-                if (process.ExitCode == 0)
-                {
-                    result.HealthState = HealthState.Healthy;
-                    result.Message = "WSL healthcheck command succeeded.";
-                }
-                else
-                {
-                    result.HealthState = HealthState.Unhealthy;
-                    result.Message = $"WSL healthcheck failed with exit code {process.ExitCode}.";
-                }
+            if (exitCode == 0)
+            {
+                result.HealthState = HealthState.Healthy;
+                result.Message = "WSL healthcheck command succeeded.";
             }
             else
             {
-                 result.HealthState = HealthState.Unhealthy;
-                 result.Message = "Failed to start wsl.exe process.";
+                result.HealthState = HealthState.Unhealthy;
+                result.Message = $"WSL healthcheck failed with exit code {exitCode}.";
             }
         }
         catch (Exception ex)
@@ -63,5 +54,20 @@ public class WslHealthCheckProvider : IHealthCheckProvider
         }
 
         return result;
+    }
+
+    protected virtual async Task<(int ExitCode, string Output)> ExecuteProcessAsync(ProcessStartInfo processInfo, CancellationToken cancellationToken)
+    {
+        using var process = Process.Start(processInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("Failed to start wsl.exe process.");
+        }
+
+        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        var output = await outputTask;
+
+        return (process.ExitCode, output);
     }
 }
