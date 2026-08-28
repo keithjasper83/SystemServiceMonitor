@@ -44,4 +44,6 @@ public class Resource
 
     // Dependencies
     public string? DependencyIds { get; set; } // Comma separated IDs
+
+    public int DisplayOrder { get; set; } = 0;
 }

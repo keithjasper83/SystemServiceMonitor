@@ -6,30 +6,30 @@ using SystemServiceMonitor.Core.Models;
 
 namespace SystemServiceMonitor.Wpf;
 
-public partial class ResourceFormWindow : Window
+public partial class ResourceFormUserControl : UserControl
 {
-    public Resource Resource { get; private set; }
+    public Resource Resource { get; set; } = new Resource();
 
-    public ResourceFormWindow(Resource? existingResource = null)
+    public event EventHandler<Resource>? SaveCompleted;
+    public event EventHandler? Cancelled;
+
+    public ResourceFormUserControl()
     {
         InitializeComponent();
-
         CboType.ItemsSource = Enum.GetValues(typeof(ResourceType));
+    }
 
+    public void LoadResource(Resource? existingResource)
+    {
         if (existingResource != null)
         {
             Resource = existingResource;
-            LoadResource();
         }
         else
         {
             Resource = new Resource();
-            CboType.SelectedIndex = 0;
         }
-    }
 
-    private void LoadResource()
-    {
         TxtDisplayName.Text = Resource.DisplayName;
         CboType.SelectedItem = Resource.Type;
         TxtStartCommand.Text = Resource.StartCommand;
@@ -71,14 +71,12 @@ public partial class ResourceFormWindow : Window
         }
 
         SaveResource();
-        DialogResult = true;
-        Close();
+        SaveCompleted?.Invoke(this, Resource);
     }
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
-        DialogResult = false;
-        Close();
+        Cancelled?.Invoke(this, EventArgs.Empty);
     }
 
     private void CboType_SelectionChanged(object sender, SelectionChangedEventArgs e)
