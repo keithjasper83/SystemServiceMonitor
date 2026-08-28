@@ -19,6 +19,66 @@ using System.Management;
 
 public partial class MainWindow : Window
 {
+    private Point _dragStartPoint;
+    public ObservableCollection<Resource> DashboardResources { get; set; } = new ObservableCollection<Resource>();
+
+    private void ResourceGrid_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(null);
+    }
+
+    private void ResourceGrid_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+        {
+            Point mousePos = e.GetPosition(null);
+            Vector diff = _dragStartPoint - mousePos;
+
+            if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                var datagrid = sender as System.Windows.Controls.DataGrid;
+                var row = FindAncestor<System.Windows.Controls.DataGridRow>((DependencyObject)e.OriginalSource);
+
+                if (row != null && row.Item != null)
+                {
+                    DragDrop.DoDragDrop(row, row.Item, DragDropEffects.Move);
+                }
+            }
+        }
+    }
+
+    private void ResourceGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(typeof(Resource)))
+        {
+            var droppedData = e.Data.GetData(typeof(Resource)) as Resource;
+            var targetRow = FindAncestor<System.Windows.Controls.DataGridRow>((DependencyObject)e.OriginalSource);
+            var targetItem = targetRow?.Item as Resource;
+
+            if (droppedData != null && targetItem != null && droppedData != targetItem)
+            {
+                var sourceIndex = DashboardResources.IndexOf(droppedData);
+                var targetIndex = DashboardResources.IndexOf(targetItem);
+
+                DashboardResources.Move(sourceIndex, targetIndex);
+
+                // Save order
+                SystemServiceMonitor.Wpf.Helpers.DisplayOrderHelper.SaveOrder(DashboardResources.Select(r => r.Id));
+            }
+        }
+    }
+
+    private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
+    {
+        do
+        {
+            if (current is T ancestor) return ancestor;
+            current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+        } while (current != null);
+        return null;
+    }
+
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
@@ -32,14 +92,6 @@ public partial class MainWindow : Window
         _logger = logger;
 
         // NOTE: DO NOT TOUCH THE ICON FILE (icon.ico). It has been fixed. Replacing it or modifying it manually causes XamlParseException.
-
-        // TODO [Jules]: Modernize UI and Window layout:
-        // - Implement the Dashboard as the main visible window at all times.
-        // - Add Drag & Drop (D&D) support to the Dashboard grid so users can manually set service display order.
-        // - Move "Add Item" to an expandable left side-panel, making the dashboard shrink to ~50% width when open.
-        // - Move AI Diagnosis output to an expandable right side-panel that can hide the left panel if necessary.
-        // - Move the Log Viewer into a dockable/minimizable bottom panel with Visual Studio-style coloring (red for Errors, yellow for Warnings).
-        // - Establish a unified starting list of common services/processes as placeholders or suggestions when no config exists.
 
         // TODO [Jules]: Implement automatic Dashboard refresh:
         // - Add a System.Windows.Threading.DispatcherTimer here.
@@ -55,14 +107,105 @@ public partial class MainWindow : Window
         // - Write extensive unit and UI/integration tests for these new behaviors.
         // - The CI/CD has been updated to build & test completely. Ensure all new code adheres strictly so it builds first time, every time.
 
-        // Hide window initially to act as tray app
-        this.WindowState = WindowState.Minimized;
-        this.Hide();
-
         CmbResourceType.ItemsSource = Enum.GetValues(typeof(ResourceType));
+        CboType.ItemsSource = Enum.GetValues(typeof(ResourceType));
         DiscoveryGrid.ItemsSource = DiscoveredResources;
 
         Loaded += MainWindow_Loaded;
+    }
+
+
+    private Resource? _editingResource;
+
+    private void PopulateForm(Resource? r)
+    {
+        _editingResource = r;
+        if (r == null)
+        {
+            TxtDisplayName.Text = string.Empty;
+            CboType.SelectedItem = ResourceType.WindowsService;
+            TxtStartCommand.Text = string.Empty;
+            TxtStopCommand.Text = string.Empty;
+            TxtRestartCommand.Text = string.Empty;
+            TxtHealthcheck.Text = string.Empty;
+            TxtWorkingDir.Text = string.Empty;
+            TxtWslDistro.Text = string.Empty;
+            TxtDockerId.Text = string.Empty;
+            TxtDependencies.Text = string.Empty;
+            TxtGitHubRepo.Text = string.Empty;
+            ChkAutoRepair.IsChecked = true;
+            ChkRequiresElevation.IsChecked = false;
+        }
+        else
+        {
+            TxtDisplayName.Text = r.DisplayName;
+            CboType.SelectedItem = r.Type;
+            TxtStartCommand.Text = r.StartCommand;
+            TxtStopCommand.Text = r.StopCommand;
+            TxtRestartCommand.Text = r.RestartCommand;
+            TxtHealthcheck.Text = r.HealthcheckCommand;
+            TxtWorkingDir.Text = r.WorkingDirectory;
+            TxtWslDistro.Text = r.WslDistroName;
+            TxtDockerId.Text = r.DockerIdentifier;
+            TxtDependencies.Text = r.DependencyIds;
+            TxtGitHubRepo.Text = r.GitHubRepoUrl;
+            ChkAutoRepair.IsChecked = r.AutoRepairEnabled;
+            ChkRequiresElevation.IsChecked = r.RequiresElevation;
+        }
+    }
+
+    private async void BtnFormSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(TxtDisplayName.Text))
+        {
+            MessageBox.Show("Display Name is required.");
+            return;
+        }
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var resource = _editingResource ?? new Resource { Id = Guid.NewGuid().ToString() };
+
+        resource.DisplayName = TxtDisplayName.Text;
+        if (CboType.SelectedItem != null)
+            resource.Type = (ResourceType)CboType.SelectedItem;
+        resource.StartCommand = TxtStartCommand.Text;
+        resource.StopCommand = TxtStopCommand.Text;
+        resource.RestartCommand = TxtRestartCommand.Text;
+        resource.HealthcheckCommand = TxtHealthcheck.Text;
+        resource.WorkingDirectory = TxtWorkingDir.Text;
+        resource.WslDistroName = TxtWslDistro.Text;
+        resource.DockerIdentifier = TxtDockerId.Text;
+        resource.DependencyIds = TxtDependencies.Text;
+        resource.GitHubRepoUrl = TxtGitHubRepo.Text;
+        resource.AutoRepairEnabled = ChkAutoRepair.IsChecked ?? false;
+        resource.RequiresElevation = ChkRequiresElevation.IsChecked ?? false;
+
+        if (_editingResource == null)
+        {
+            db.Resources.Add(resource);
+        }
+        else
+        {
+            db.Resources.Update(resource);
+        }
+
+        await db.SaveChangesAsync();
+        await LoadResourcesAsync();
+
+        ExpanderAddResource.IsExpanded = false;
+        _editingResource = null;
+    }
+
+    private void BtnFormCancel_Click(object sender, RoutedEventArgs e)
+    {
+        ExpanderAddResource.IsExpanded = false;
+        _editingResource = null;
+    }
+
+    private void CboType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
     }
 
     private void CmbResourceType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -198,6 +341,19 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        if (!await db.Resources.AnyAsync())
+        {
+            db.Resources.AddRange(
+                new Resource { Id = Guid.NewGuid().ToString(), DisplayName = "Print Spooler", Type = ResourceType.WindowsService, StartCommand = "spooler" },
+                new Resource { Id = Guid.NewGuid().ToString(), DisplayName = "Windows Update", Type = ResourceType.WindowsService, StartCommand = "wuauserv" },
+                new Resource { Id = Guid.NewGuid().ToString(), DisplayName = "IIS Admin Service", Type = ResourceType.WindowsService, StartCommand = "IISADMIN" }
+            );
+            await db.SaveChangesAsync();
+        }
+
         await LoadResourcesAsync();
         await LoadLogsAsync();
     }
@@ -209,7 +365,23 @@ public partial class MainWindow : Window
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var resources = await db.Resources.ToListAsync();
-            ResourceGrid.ItemsSource = resources;
+
+            var savedOrder = SystemServiceMonitor.Wpf.Helpers.DisplayOrderHelper.LoadOrder();
+            var orderedList = resources.OrderBy(r => {
+                var index = savedOrder.IndexOf(r.Id);
+                return index == -1 ? int.MaxValue : index;
+            }).ToList();
+
+            DashboardResources.Clear();
+            foreach (var r in orderedList)
+            {
+                DashboardResources.Add(r);
+            }
+
+            if (ResourceGrid.ItemsSource != DashboardResources)
+            {
+                ResourceGrid.ItemsSource = DashboardResources;
+            }
         }
         catch (Exception ex)
         {
@@ -232,8 +404,23 @@ public partial class MainWindow : Window
                 {
                     using var stream = new FileStream(latestLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                     using var reader = new StreamReader(stream);
-                    LogTextBox.Text = await reader.ReadToEndAsync();
-                    LogTextBox.ScrollToEnd();
+                    var text = await reader.ReadToEndAsync();
+
+                    LogParagraph.Inlines.Clear();
+                    foreach (var line in text.Split(Environment.NewLine))
+                    {
+                        var run = new System.Windows.Documents.Run(line + Environment.NewLine);
+                        if (line.Contains("ERR") || line.Contains("fail", StringComparison.OrdinalIgnoreCase))
+                        {
+                            run.Foreground = System.Windows.Media.Brushes.Red;
+                        }
+                        else if (line.Contains("WRN") || line.Contains("warn", StringComparison.OrdinalIgnoreCase))
+                        {
+                            run.Foreground = System.Windows.Media.Brushes.Orange;
+                        }
+                        LogParagraph.Inlines.Add(run);
+                    }
+                    LogRichTextBox.ScrollToEnd();
                 }
             }
         }
@@ -277,17 +464,10 @@ public partial class MainWindow : Window
         await LoadLogsAsync();
     }
 
-    private async void BtnAddResource_Click(object sender, RoutedEventArgs e)
+    private void BtnAddResource_Click(object sender, RoutedEventArgs e)
     {
-        var form = new ResourceFormWindow();
-        if (form.ShowDialog() == true)
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Resources.Add(form.Resource);
-            await db.SaveChangesAsync();
-            await LoadResourcesAsync();
-        }
+        PopulateForm(null);
+        ExpanderAddResource.IsExpanded = true;
     }
 
     private async void BtnEditResource_Click(object sender, RoutedEventArgs e)
@@ -332,10 +512,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        ExpanderAiDiagnosis.IsExpanded = true;
         AiLogTextBox.Text = "Requesting diagnosis from local AI...";
 
         // Grab recent logs
-        var logContext = string.Join(Environment.NewLine, LogTextBox.Text.Split(Environment.NewLine).TakeLast(50));
+        var logContext = string.Join(Environment.NewLine, new System.Windows.Documents.TextRange(LogRichTextBox.Document.ContentStart, LogRichTextBox.Document.ContentEnd).Text.Split(Environment.NewLine).TakeLast(50));
 
         using var scope = _serviceProvider.CreateScope();
         var aiService = scope.ServiceProvider.GetRequiredService<IAiDiagnosisService>();
