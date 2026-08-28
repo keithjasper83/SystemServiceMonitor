@@ -36,7 +36,7 @@ public class ProcessResourceController : IResourceController
                 Verb = resource.RequiresElevation ? "runas" : string.Empty
             };
 
-            Process.Start(processInfo);
+            StartProcess(processInfo);
             _logger.LogInformation("Successfully started Process resource {Id}.", resource.Id);
             return Task.FromResult(true);
         }
@@ -59,11 +59,7 @@ public class ProcessResourceController : IResourceController
         try
         {
             var processName = System.IO.Path.GetFileNameWithoutExtension(resource.StartCommand);
-            var processes = Process.GetProcessesByName(processName);
-            foreach (var p in processes)
-            {
-                p.Kill();
-            }
+            KillProcessesByName(processName);
             _logger.LogInformation("Successfully killed Process resource {Id}.", resource.Id);
             return true;
         }
@@ -88,7 +84,7 @@ public class ProcessResourceController : IResourceController
         return await StartAsync(resource);
     }
 
-    private async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
+    protected virtual async Task<bool> RunCommandAsync(string command, string? workingDirectory, int timeoutSeconds)
     {
          try
         {
@@ -103,7 +99,7 @@ public class ProcessResourceController : IResourceController
                 CreateNoWindow = true
             };
 
-            var p = Process.Start(processInfo);
+            var p = StartProcess(processInfo);
             if(p != null)
             {
                  var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
@@ -127,6 +123,20 @@ public class ProcessResourceController : IResourceController
         {
             _logger.LogError(ex, "Failed to run command: {Command}", command);
             return false;
+        }
+    }
+
+    protected virtual Process? StartProcess(ProcessStartInfo processInfo)
+    {
+        return Process.Start(processInfo);
+    }
+
+    protected virtual void KillProcessesByName(string processName)
+    {
+        var processes = Process.GetProcessesByName(processName);
+        foreach (var p in processes)
+        {
+            p.Kill();
         }
     }
 }
