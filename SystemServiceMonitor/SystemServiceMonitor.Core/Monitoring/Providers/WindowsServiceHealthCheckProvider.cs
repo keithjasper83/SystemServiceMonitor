@@ -24,14 +24,7 @@ public class WindowsServiceHealthCheckProvider : IHealthCheckProvider
         {
             var process = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "sc.exe",
-                    Arguments = $"query {resource.StartCommand}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                StartInfo = Utils.ProcessUtils.CreateProcessStartInfo("sc.exe", $"query {resource.StartCommand}", redirectStandardError: false)
             };
 
             process.Start();
