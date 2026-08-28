@@ -10,9 +10,21 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 {
     public ResourceType TargetType => ResourceType.Wsl;
 
+    protected virtual Process? StartProcess(ProcessStartInfo processInfo)
+    {
+        return Process.Start(processInfo);
+    }
+
     public async Task<HealthCheckResult> CheckHealthAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         var result = new HealthCheckResult();
+
+        if (resource == null)
+        {
+            result.HealthState = HealthState.Unknown;
+            result.Message = "Resource is null.";
+            return result;
+        }
 
         if (string.IsNullOrWhiteSpace(resource.HealthcheckCommand) || string.IsNullOrWhiteSpace(resource.WslDistroName))
         {
@@ -33,7 +45,7 @@ public class WslHealthCheckProvider : IHealthCheckProvider
                 CreateNoWindow = true
             };
 
-            using var process = Process.Start(processInfo);
+            using var process = StartProcess(processInfo);
             if (process != null)
             {
                 await process.WaitForExitAsync(cancellationToken);
