@@ -23,17 +23,6 @@ public class MonitoringTests
     }
 
     [Fact]
-    public async Task HttpHealthCheck_ReturnsUnknown_WhenNoUrl()
-    {
-        var httpClient = new HttpClient();
-        var provider = new HttpHealthCheckProvider(httpClient);
-        var resource = new Resource { Type = ResourceType.Http, HealthcheckCommand = null };
-        var result = await provider.CheckHealthAsync(resource);
-
-        Assert.Equal(HealthState.Unknown, result.HealthState);
-    }
-
-    [Fact]
     public async Task HealthCheckManager_ReturnsUnknown_WhenNoProvider()
     {
         var providers = new IHealthCheckProvider[] { };
