@@ -60,4 +60,35 @@ public class MonitoringTests
 
         Assert.Equal(HealthState.Healthy, result.HealthState);
     }
+
+    [Fact]
+    public async Task HealthCheckManager_ReturnsUnknown_WhenCircuitBreakerTrips()
+    {
+        var mockProvider = new Mock<IHealthCheckProvider>();
+        mockProvider.Setup(p => p.TargetType).Returns(ResourceType.Process);
+
+        // Setup provider to throw an exception to trigger the circuit breaker
+        mockProvider
+            .Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new System.Exception("Simulated failure"));
+
+        var logger = new Mock<ILogger<HealthCheckManager>>();
+        var manager = new HealthCheckManager(new[] { mockProvider.Object }, logger.Object);
+
+        var resource = new Resource { Type = ResourceType.Process };
+
+        // Call 5 times to trip the circuit breaker
+        for (int i = 0; i < 5; i++)
+        {
+            var result = await manager.ExecuteCheckAsync(resource);
+            Assert.Equal(HealthState.Unhealthy, result.HealthState);
+        }
+
+        // On the 6th call, the circuit breaker should be open and throw BrokenCircuitException
+        // which HealthCheckManager catches and returns HealthState.Unknown
+        var trippedResult = await manager.ExecuteCheckAsync(resource);
+
+        Assert.Equal(HealthState.Unknown, trippedResult.HealthState);
+        Assert.Equal("Circuit breaker open, check aborted.", trippedResult.Message);
+    }
 }
