@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using SystemServiceMonitor.Core.Models;
 
 namespace SystemServiceMonitor.Core.AI;
@@ -26,6 +27,10 @@ public class AiDiagnosisService : IAiDiagnosisService
     private readonly IConfiguration _configuration;
     private readonly IMemoryCache _cache;
     private readonly string _aiEndpoint;
+
+    private static readonly Regex _sensitiveDataRegex = new Regex(
+        @"(?i)(password|pwd|secret|token|api_key|bearer)[=:\s]+[^\s]+",
+        RegexOptions.Compiled);
 
     public AiDiagnosisService(HttpClient httpClient, ILogger<AiDiagnosisService> logger, IConfiguration configuration, IMemoryCache cache)
     {
@@ -48,13 +53,16 @@ public class AiDiagnosisService : IAiDiagnosisService
 
         try
         {
+            var redactedStartCommand = RedactSensitiveData(resource.StartCommand);
+            var redactedLogs = RedactSensitiveData(recentLogs);
+
             var prompt = $@"
 You are an expert Windows System Administrator. A monitored resource has failed.
 Resource Name: {resource.DisplayName}
 Resource Type: {resource.Type}
-Start Command: {resource.StartCommand}
+Start Command: {redactedStartCommand}
 Recent Logs:
-{recentLogs}
+{redactedLogs}
 
 Provide a structured JSON diagnosis containing:
 - summary: A brief explanation of the failure.
@@ -123,6 +131,16 @@ Ensure your entire response is valid JSON matching this structure.
         using var sha256 = SHA256.Create();
         var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(resourceId + logs));
         return "AiDiag_" + Convert.ToBase64String(hash);
+    }
+
+    private string? RedactSensitiveData(string? input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        return _sensitiveDataRegex.Replace(input, "$1 ***REDACTED***");
     }
 }
 
