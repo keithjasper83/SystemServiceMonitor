@@ -4,8 +4,15 @@
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="SystemServiceMonitor Dashboard" Height="600" Width="900" WindowStartupLocation="CenterScreen">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="5" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
         <!-- NOTE: LEAVE THIS ICON SOURCE ALONE. The IconSource has broken the application previously. -->
         <tb:TaskbarIcon x:Name="TrayIcon"
+                        Grid.Row="0"
                         ToolTipText="SystemServiceMonitor"
                         IconSource="pack://application:,,,/icon.ico"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
@@ -18,7 +25,7 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <TabControl>
+        <TabControl Grid.Row="0">
             <TabItem Header="Resource Discovery">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -81,14 +88,23 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem Header="Logs">
-                <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
-                <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
-            </TabItem>
             <TabItem Header="AI Diagnosis Output">
                 <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
                 <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
             </TabItem>
         </TabControl>
+
+        <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" Height="5" Background="LightGray" />
+
+        <Expander Grid.Row="2" Header="Logs" IsExpanded="True" ExpandDirection="Up" Margin="5">
+            <ListBox x:Name="LogListView" MinHeight="150" FontFamily="Consolas" Background="#1E1E1E" Foreground="LightGray" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Text}" Foreground="{Binding Color}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Expander>
+
     </Grid>
 </Window>

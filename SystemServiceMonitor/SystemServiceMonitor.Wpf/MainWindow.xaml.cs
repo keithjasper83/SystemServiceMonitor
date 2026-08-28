@@ -11,17 +11,26 @@ using SystemServiceMonitor.Core.Models;
 using SystemServiceMonitor.Core.AI;
 using SystemServiceMonitor.Core.Repair;
 using System.Diagnostics;
+using System.Windows.Media;
+using System.Collections.Generic;
 
 namespace SystemServiceMonitor.Wpf;
 
 using System.Collections.ObjectModel;
 using System.Management;
 
+public class LogLine
+{
+    public string Text { get; set; } = string.Empty;
+    public SolidColorBrush Color { get; set; } = Brushes.LightGray;
+}
+
 public partial class MainWindow : Window
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MainWindow> _logger;
     private AiDiagnosisResponse? _currentAiDiagnosis;
+    private ObservableCollection<LogLine> _logLines = new();
 
     public ObservableCollection<DiscoveredResource> DiscoveredResources { get; } = new();
 
@@ -30,6 +39,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _serviceProvider = serviceProvider;
         _logger = logger;
+        LogListView.ItemsSource = _logLines;
 
         // NOTE: DO NOT TOUCH THE ICON FILE (icon.ico). It has been fixed. Replacing it or modifying it manually causes XamlParseException.
 
@@ -232,8 +242,33 @@ public partial class MainWindow : Window
                 {
                     using var stream = new FileStream(latestLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                     using var reader = new StreamReader(stream);
-                    LogTextBox.Text = await reader.ReadToEndAsync();
-                    LogTextBox.ScrollToEnd();
+
+                    var newLines = new List<LogLine>();
+                    string? line;
+                    while ((line = await reader.ReadLineAsync()) != null)
+                    {
+                        var logLine = new LogLine { Text = line };
+                        if (line.Contains("[ERR]", StringComparison.OrdinalIgnoreCase) || line.Contains("[Error]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            logLine.Color = Brushes.Red;
+                        }
+                        else if (line.Contains("[WRN]", StringComparison.OrdinalIgnoreCase) || line.Contains("[Warning]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            logLine.Color = Brushes.Yellow;
+                        }
+                        newLines.Add(logLine);
+                    }
+
+                    _logLines.Clear();
+                    foreach (var l in newLines)
+                    {
+                        _logLines.Add(l);
+                    }
+
+                    if (_logLines.Any())
+                    {
+                        LogListView.ScrollIntoView(_logLines.Last());
+                    }
                 }
             }
         }
@@ -335,7 +370,7 @@ public partial class MainWindow : Window
         AiLogTextBox.Text = "Requesting diagnosis from local AI...";
 
         // Grab recent logs
-        var logContext = string.Join(Environment.NewLine, LogTextBox.Text.Split(Environment.NewLine).TakeLast(50));
+        var logContext = string.Join(Environment.NewLine, _logLines.Select(l => l.Text).TakeLast(50));
 
         using var scope = _serviceProvider.CreateScope();
         var aiService = scope.ServiceProvider.GetRequiredService<IAiDiagnosisService>();
