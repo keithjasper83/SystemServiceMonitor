@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,7 +51,7 @@ public class MonitoringTests
     {
         var mockProvider = new Mock<IHealthCheckProvider>();
         mockProvider.Setup(p => p.TargetType).Returns(ResourceType.Process);
-        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync(new HealthCheckResult { HealthState = HealthState.Healthy });
+        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<CancellationToken>())).ReturnsAsync(new HealthCheckResult { HealthState = HealthState.Healthy });
 
         var logger = new Mock<ILogger<HealthCheckManager>>();
         var manager = new HealthCheckManager(new[] { mockProvider.Object }, logger.Object);
@@ -59,5 +60,30 @@ public class MonitoringTests
         var result = await manager.ExecuteCheckAsync(resource);
 
         Assert.Equal(HealthState.Healthy, result.HealthState);
+    }
+
+    [Fact]
+    public async Task HealthCheckManager_ReturnsUnknown_WhenProviderTimesOut()
+    {
+        var mockProvider = new Mock<IHealthCheckProvider>();
+        mockProvider.Setup(p => p.TargetType).Returns(ResourceType.Process);
+
+        mockProvider.Setup(p => p.CheckHealthAsync(It.IsAny<Resource>(), It.IsAny<CancellationToken>()))
+            .Returns<Resource, CancellationToken>(async (r, ct) =>
+            {
+                // The HealthCheckManager has a 15-second timeout policy.
+                // We use Task.Delay longer than 15 seconds, and respect cancellation to simulate timeout properly.
+                await Task.Delay(TimeSpan.FromSeconds(20), ct);
+                return new HealthCheckResult { HealthState = HealthState.Healthy };
+            });
+
+        var logger = new Mock<ILogger<HealthCheckManager>>();
+        var manager = new HealthCheckManager(new[] { mockProvider.Object }, logger.Object);
+
+        var resource = new Resource { Type = ResourceType.Process };
+        var result = await manager.ExecuteCheckAsync(resource);
+
+        Assert.Equal(HealthState.Unknown, result.HealthState);
+        Assert.Equal("Health check timed out.", result.Message);
     }
 }
