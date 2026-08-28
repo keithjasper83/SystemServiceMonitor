@@ -64,17 +64,39 @@
                         <Button Content="E_xecute Repair" Width="100" Margin="0,0,10,0" Click="BtnExecuteRepair_Click" ToolTip="Execute AI Recommended Action" IsEnabled="False" x:Name="BtnExecuteRepair" />
                     </StackPanel>
 
-                    <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
-                    <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Row="1" SelectionChanged="ResourceGrid_SelectionChanged">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
-                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />
-                            <DataGridTextColumn Header="Health" Binding="{Binding HealthState}" Width="80" />
-                            <DataGridTextColumn Header="State" Binding="{Binding ObservedState}" Width="80" />
-                            <DataGridTextColumn Header="Repair State" Binding="{Binding RepairState}" Width="100" />
-                            <DataGridTextColumn Header="Dependencies" Binding="{Binding DependencyIds}" Width="100" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- TODO [Jules]: Enable D&D (Drag and Drop) reordering of rows on this DataGrid so the user can easily manage the order of services shown to them. -->
+                        <DataGrid x:Name="ResourceGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" Grid.Column="0" SelectionChanged="ResourceGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" />
+                                <DataGridTextColumn Header="Health" Binding="{Binding HealthState}" Width="80" />
+                                <DataGridTextColumn Header="State" Binding="{Binding ObservedState}" Width="80" />
+                                <DataGridTextColumn Header="Repair State" Binding="{Binding RepairState}" Width="100" />
+                                <DataGridTextColumn Header="Dependencies" Binding="{Binding DependencyIds}" Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Grid x:Name="AiDiagnosisPanel" Grid.Column="1" Width="300" Margin="0,10,10,10" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,5">
+                                <TextBlock Text="AI Diagnosis Output" FontWeight="Bold" VerticalAlignment="Center" />
+                                <Button Content="X" Width="20" Height="20" Click="BtnCloseAiDiagnosis_Click" HorizontalAlignment="Right" />
+                            </Grid>
+
+                            <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
+                            <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" TextWrapping="Wrap" Grid.Row="1" />
+                        </Grid>
+                    </Grid>
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
                         <Button Content="Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
@@ -85,10 +107,7 @@
                 <!-- TODO [Jules]: Convert this Logs view into a dockable/minimizable panel below the Dashboard (Visual Studio style). Make lines color-coded based on severity/importance! -->
                 <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" />
             </TabItem>
-            <TabItem Header="AI Diagnosis Output">
-                <!-- TODO [Jules]: This should move from a TabItem into the expandable right panel mentioned earlier. -->
-                <TextBox x:Name="AiLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10" FontFamily="Consolas" TextWrapping="Wrap" />
-            </TabItem>
+
         </TabControl>
     </Grid>
 </Window>
