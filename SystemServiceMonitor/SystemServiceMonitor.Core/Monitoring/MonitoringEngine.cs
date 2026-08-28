@@ -19,23 +19,24 @@ public class MonitoringEngine : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MonitoringEngine> _logger;
+    private readonly int _pollingInterval;
 
     public MonitoringEngine(IServiceProvider serviceProvider, ILogger<MonitoringEngine> logger)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+
+        var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+        var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
+        if (!int.TryParse(pollingIntervalStr, out _pollingInterval) || _pollingInterval < 1)
+        {
+            _pollingInterval = 10;
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Monitoring Engine starting.");
-
-        var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
-        var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
-        if (!int.TryParse(pollingIntervalStr, out int pollingInterval) || pollingInterval < 1)
-        {
-            pollingInterval = 10;
-        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -48,7 +49,7 @@ public class MonitoringEngine : BackgroundService
                 _logger.LogError(ex, "Error occurred during monitoring cycle.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(pollingInterval), stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(_pollingInterval), stoppingToken);
         }
 
         _logger.LogInformation("Monitoring Engine stopped.");
@@ -70,14 +71,7 @@ public class MonitoringEngine : BackgroundService
         {
             resources = await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken);
 
-            // Getting the polling interval here
-            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
-            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
-            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
-            {
-                pollingInterval = 10;
-            }
-            cache.Set("MonitoredResources", resources, TimeSpan.FromSeconds(pollingInterval));
+            cache.Set("MonitoredResources", resources, TimeSpan.FromSeconds(_pollingInterval));
         }
 
         // Keep track of modified resources to save to DB
@@ -164,13 +158,7 @@ public class MonitoringEngine : BackgroundService
             await dbContext.SaveChangesAsync(stoppingToken);
 
             // Update cache to reflect changes
-            var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
-            var pollingIntervalStr = configuration["Monitoring:PollingIntervalSeconds"];
-            if (!int.TryParse(pollingIntervalStr, out int pollingInterval))
-            {
-                pollingInterval = 10;
-            }
-            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromSeconds(pollingInterval));
+            cache.Set("MonitoredResources", await dbContext.Resources.AsNoTracking().ToListAsync(stoppingToken), TimeSpan.FromSeconds(_pollingInterval));
         }
     }
 }
