@@ -55,16 +55,16 @@ public class RepairPolicyEngine : IRepairPolicyEngine
         // --- NEW: Check Dependencies ---
         if (!string.IsNullOrWhiteSpace(resource.DependencyIds))
         {
-            var deps = resource.DependencyIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(d => d.Trim());
+            var deps = resource.DependencyIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(d => d.Trim()).ToList();
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            foreach (var depId in deps)
+            var depResources = await db.Resources.Where(r => deps.Contains(r.Id)).ToListAsync();
+            foreach (var depResource in depResources)
             {
-                var depResource = await db.Resources.FirstOrDefaultAsync(r => r.Id == depId);
-                if (depResource != null && depResource.HealthState != HealthState.Healthy)
+                if (depResource.HealthState != HealthState.Healthy)
                 {
-                    _logger.LogWarning("Cannot restart resource {Id} because dependency {DepId} is not healthy.", resource.Id, depId);
+                    _logger.LogWarning("Cannot restart resource {Id} because dependency {DepId} is not healthy.", resource.Id, depResource.Id);
                     return; // Wait for next cycle
                 }
             }
