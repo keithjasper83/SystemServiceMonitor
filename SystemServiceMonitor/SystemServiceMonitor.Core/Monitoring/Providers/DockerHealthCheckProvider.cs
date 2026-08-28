@@ -23,23 +23,11 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = $"inspect --format=\"{{{{.State.Status}}}}\" {resource.DockerIdentifier}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var (success, exitCode, output) = await ExecuteDockerCommandAsync(resource.DockerIdentifier, cancellationToken);
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
+            if (success)
             {
-                await process.WaitForExitAsync(cancellationToken);
-                var output = (await process.StandardOutput.ReadToEndAsync(cancellationToken)).Trim();
-
-                if (process.ExitCode == 0 && output.Equals("running", StringComparison.OrdinalIgnoreCase))
+                if (exitCode == 0 && output.Equals("running", StringComparison.OrdinalIgnoreCase))
                 {
                     result.HealthState = HealthState.Healthy;
                     result.Message = $"Docker container {resource.DockerIdentifier} is running.";
@@ -64,5 +52,29 @@ public class DockerHealthCheckProvider : IHealthCheckProvider
         }
 
         return result;
+    }
+
+    protected virtual async Task<(bool Success, int ExitCode, string Output)> ExecuteDockerCommandAsync(string identifier, CancellationToken cancellationToken)
+    {
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = "docker",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            ArgumentList = { "inspect", "--format={{.State.Status}}", identifier }
+        };
+
+        using var process = Process.Start(processInfo);
+        if (process != null)
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            var output = (await outputTask).Trim();
+            return (true, process.ExitCode, output);
+        }
+
+        return (false, -1, string.Empty);
     }
 }
