@@ -30,7 +30,6 @@
                         <Label Content="Resource Type:" VerticalAlignment="Center" />
                         <ComboBox x:Name="CmbResourceType" Width="150" Margin="10,0" SelectionChanged="CmbResourceType_SelectionChanged" />
                         <Label Content="Filter/Path:" VerticalAlignment="Center" />
-                        <!-- TODO [Jules]: Ensure this TxtResourceFilter textbox natively supports pressing "Enter" to trigger the Discover/Search click. -->
                         <TextBox x:Name="TxtResourceFilter" Width="200" Margin="10,0" VerticalContentAlignment="Center" KeyDown="TxtResourceFilter_KeyDown" />
                         <Button x:Name="BtnDiscover" Content="_Discover" Width="100" Margin="10,0" Click="BtnDiscover_Click" IsDefault="True"/>
                     </StackPanel>
@@ -42,7 +41,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
-                        <Button Content="Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
+                        <Button x:Name="BtnAddDiscovered" Content="_Add Selected to Dashboard" Click="BtnAddDiscovered_Click" Width="180" />
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -55,7 +54,7 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Orientation="Horizontal" Margin="10">
-                        <!-- TODO [Jules]: Make "Add Resource" slide an expandable side-panel from the left and shrink this dashboard content to half screen. Use logical accelerator keys (e.g. Content="_Add Resource"). -->
+                        <!-- TODO [Jules]: Make "Add Resource" slide an expandable side-panel from the left and shrink this dashboard content to half screen. -->
                         <Button Content="_Add Resource" Width="100" Margin="0,0,10,0" Click="BtnAddResource_Click" />
                         <Button Content="_Edit Selected" Width="100" Margin="0,0,10,0" Click="BtnEditResource_Click" />
                         <Button Content="_Delete Selected" Width="100" Margin="0,0,10,0" Click="BtnDeleteResource_Click" />
@@ -77,7 +76,7 @@
                     </DataGrid>
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" HorizontalAlignment="Right">
-                        <Button Content="Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
+                        <Button x:Name="BtnRefresh" Content="_Refresh" Click="BtnRefresh_Click" Width="80" Margin="0,0,10,0" />
                     </StackPanel>
                 </Grid>
             </TabItem>
