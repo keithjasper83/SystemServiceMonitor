@@ -1,0 +1,5 @@
+#!/bin/bash
+# Dummy cmd.exe for Linux test environment
+# Expects arguments: /c <command>
+shift # remove /c
+eval "$*"
