@@ -52,12 +52,15 @@ public class WslResourceController : IResourceController
             var processInfo = new ProcessStartInfo
             {
                 FileName = "wsl.exe",
-                Arguments = $"-d {distroName} -- {command}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
+            processInfo.ArgumentList.Add("-d");
+            processInfo.ArgumentList.Add(distroName);
+            processInfo.ArgumentList.Add("--");
+            processInfo.ArgumentList.Add(command);
 
             var process = Process.Start(processInfo);
             if (process != null)
