@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media.Animation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -198,8 +199,36 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        DashboardAddResourceControl.OnSave += DashboardAddResourceControl_OnSave;
+        DashboardAddResourceControl.OnCancel += DashboardAddResourceControl_OnCancel;
         await LoadResourcesAsync();
         await LoadLogsAsync();
+    }
+
+    private async void DashboardAddResourceControl_OnSave(object? sender, EventArgs e)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Resources.Add(DashboardAddResourceControl.Resource);
+        await db.SaveChangesAsync();
+        await LoadResourcesAsync();
+        CloseAddResourcePanel();
+    }
+
+    private void DashboardAddResourceControl_OnCancel(object? sender, EventArgs e)
+    {
+        CloseAddResourcePanel();
+    }
+
+    private void CloseAddResourcePanel()
+    {
+        var animation = new DoubleAnimation
+        {
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(300),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+        };
+        AddResourcePanel.BeginAnimation(WidthProperty, animation);
     }
 
     private async Task LoadResourcesAsync()
@@ -277,17 +306,16 @@ public partial class MainWindow : Window
         await LoadLogsAsync();
     }
 
-    private async void BtnAddResource_Click(object sender, RoutedEventArgs e)
+    private void BtnAddResource_Click(object sender, RoutedEventArgs e)
     {
-        var form = new ResourceFormWindow();
-        if (form.ShowDialog() == true)
+        DashboardAddResourceControl.SetResource(null);
+        var animation = new DoubleAnimation
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Resources.Add(form.Resource);
-            await db.SaveChangesAsync();
-            await LoadResourcesAsync();
-        }
+            To = DashboardRootGrid.ActualWidth / 2,
+            Duration = TimeSpan.FromMilliseconds(300),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        AddResourcePanel.BeginAnimation(WidthProperty, animation);
     }
 
     private async void BtnEditResource_Click(object sender, RoutedEventArgs e)
