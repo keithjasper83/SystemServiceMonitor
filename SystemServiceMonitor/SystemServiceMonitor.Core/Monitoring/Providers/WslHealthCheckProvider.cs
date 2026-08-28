@@ -23,37 +23,23 @@ public class WslHealthCheckProvider : IHealthCheckProvider
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "wsl.exe",
-                Arguments = $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var processResult = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                "wsl.exe",
+                $"-d {resource.WslDistroName} -- {resource.HealthcheckCommand}",
+                cancellationToken: cancellationToken
+            );
 
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync(cancellationToken);
-                result.Output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            result.Output = processResult.Output;
 
-                if (process.ExitCode == 0)
-                {
-                    result.HealthState = HealthState.Healthy;
-                    result.Message = "WSL healthcheck command succeeded.";
-                }
-                else
-                {
-                    result.HealthState = HealthState.Unhealthy;
-                    result.Message = $"WSL healthcheck failed with exit code {process.ExitCode}.";
-                }
+            if (processResult.ExitCode == 0)
+            {
+                result.HealthState = HealthState.Healthy;
+                result.Message = "WSL healthcheck command succeeded.";
             }
             else
             {
-                 result.HealthState = HealthState.Unhealthy;
-                 result.Message = "Failed to start wsl.exe process.";
+                result.HealthState = HealthState.Unhealthy;
+                result.Message = $"WSL healthcheck failed with exit code {processResult.ExitCode}.";
             }
         }
         catch (Exception ex)

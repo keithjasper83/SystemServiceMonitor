@@ -49,27 +49,13 @@ public class WslResourceController : IResourceController
 
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "wsl.exe",
-                Arguments = $"-d {distroName} -- {command}",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
+            var result = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                "wsl.exe",
+                $"-d {distroName} -- {command}"
+            );
 
-            var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var error = await process.StandardError.ReadToEndAsync();
-
-                _logger.LogInformation("WSL Command exited with {ExitCode}. Out: {Out}, Err: {Err}", process.ExitCode, output, error);
-                return process.ExitCode == 0;
-            }
-            return false;
+            _logger.LogInformation("WSL Command exited with {ExitCode}. Out: {Out}, Err: {Err}", result.ExitCode, result.Output, result.Error);
+            return result.ExitCode == 0;
         }
         catch (Exception ex)
         {

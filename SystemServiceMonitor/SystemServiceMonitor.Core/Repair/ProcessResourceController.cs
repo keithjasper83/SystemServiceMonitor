@@ -92,36 +92,24 @@ public class ProcessResourceController : IResourceController
     {
          try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {command}",
-                WorkingDirectory = workingDirectory ?? string.Empty,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+            var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
 
-            var p = Process.Start(processInfo);
-            if(p != null)
+            try
             {
-                 var timeout = timeoutSeconds > 0 ? timeoutSeconds : 30;
-                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
-
-                 try
-                 {
-                     await p.WaitForExitAsync(cts.Token);
-                     return p.ExitCode == 0;
-                 }
-                 catch (OperationCanceledException)
-                 {
-                     _logger.LogWarning("Command timed out: {Command}", command);
-                     p.Kill();
-                     return false;
-                 }
+                var result = await SystemServiceMonitor.Core.Utilities.ProcessHelper.RunProcessAsync(
+                    "cmd.exe",
+                    $"/c {command}",
+                    workingDirectory,
+                    cts.Token
+                );
+                return result.ExitCode == 0;
             }
-            return false;
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Command timed out: {Command}", command);
+                return false;
+            }
         }
         catch (Exception ex)
         {
